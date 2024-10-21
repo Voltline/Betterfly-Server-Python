@@ -23,7 +23,7 @@ class ResponseType:
 
 class RequestMessage:
     def __init__(self, packet: str):
-        print(packet)
+        # print(packet)
         packet_json = json.loads(packet)
         self.type = packet_json["type"]
         self.from_id = packet_json["from"]

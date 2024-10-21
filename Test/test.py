@@ -97,7 +97,7 @@ class SimpleTCPClient:
             print("Connection closed.")
 
 if __name__ == "__main__":
-    host = '127.0.0.1'  # 服务器的 IP 地址
+    host = '192.168.31.12'  # 服务器的 IP 地址
     port = 54342        # 服务器的端口
     user_id = 'test_user'  # 用户ID，用于在连接时进行初始化
 
