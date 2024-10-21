@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import Utils.Message
 import Utils.config
 from Test.test import RequestType
-from Utils.Message import ResponseMessage
+from Utils.Message import ResponseMessage, ResponseType
 
 MAX_WORKER = 16
 MAX_QUEUE = 200
@@ -132,6 +132,7 @@ class EpollChatServer:
             data = client_socket.recv(40960)
             if data:
                 task = Utils.Message.RequestMessage(data.decode())
+                # self.logger.info(f"Received data from user {user_id}: {data.decode()} from {client_socket.getpeername()}")
                 if task.type == RequestType.Exit:
                     self.close_client(fileno)
                 elif task.type in [RequestType.Single, RequestType.Multi, RequestType.All]:
@@ -142,7 +143,7 @@ class EpollChatServer:
                         for user_id, (user_name, fno, sock) in self.clients.items():
                             sock.send(ResponseMessage.make_post_message(
                                 task.type, from_id, msg, user_name
-                            ))
+                            ).to_json_str().encode())
                     else:
                         for id in to_ids:
                             to_info = self.clients.get(id)
@@ -150,8 +151,7 @@ class EpollChatServer:
                                 user_name, fno, sock = to_info
                                 sock.send(ResponseMessage.make_post_message(
                                     task.type, from_id, msg, user_name
-                                ))
-                self.logger.info(f"Received data from user {user_id}: {data.decode()} from {client_socket.getpeername()}")
+                                ).to_json_str().encode())
             else:
                 # 客户端已断开连接
                 self.close_client(fileno)
@@ -181,6 +181,7 @@ class EpollChatServer:
         if user_id is not None:
             try:
                 client_socket = self.clients[user_id][2]
+                client_socket.send(ResponseMessage.make_server_message("Goodbye!").to_json_str())
                 self.logger.info(f"Connection closed from {client_socket.getpeername()} for user {user_id}")
                 self.epoll.unregister(fileno)
                 client_socket.close()
@@ -204,8 +205,8 @@ class EpollChatServer:
             # 发送服务器关闭消息给所有已连接用户
             for uid, (user_name, fno, sock) in list(self.clients.items()):
                 try:
-                    shutdown_message = json.dumps({"type": "server", "content": {"message": "Server Close"}})
-                    sock.send(shutdown_message.encode())
+                    shutdown_message = ResponseMessage.make_server_message("Server Close")
+                    sock.send(shutdown_message.to_json_str().encode())
                 except (socket.error, BrokenPipeError) as e:
                     self.logger.error(f"Error sending shutdown message to user {uid}: {e}", exc_info=True)
                 except Exception as e:

@@ -48,11 +48,11 @@ class ResponseMessage:
 
     @staticmethod
     def make_server_message(msg: str):
-        return ResponseMessage(ResponseMessage.Server, -1, msg, "")
+        return ResponseMessage(ResponseType.Server, -1, msg, "")
     
     @staticmethod
     def make_refused_message(msg: str):
-        return ResponseMessage(ResponseMessage.Refused, -1, "", "")
+        return ResponseMessage(ResponseType.Refused, -1, "", "")
     
     @staticmethod
     def make_post_message(type: ResponseType, from_id: int, msg: str, from_name: str):
@@ -61,10 +61,10 @@ class ResponseMessage:
     
     @staticmethod
     def make_warn_message(msg: str):
-        return ResponseMessage(ResponseMessage.Server, -1, msg, "")
+        return ResponseMessage(ResponseType.Server, -1, msg, "")
 
     def to_json_str(self):
-        info = json.json()
+        info = json.loads("{}")
         info["type"] = self.type
         if self.type != ResponseType.Refused:
             info["msg"] = self.msg
