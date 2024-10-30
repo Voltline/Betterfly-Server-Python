@@ -112,8 +112,6 @@ if __name__ == "__main__":
         # 等待服务器处理登录请求后再发送消息
         time.sleep(2)
         # 测试发送广播消息
-        client.send_message(RequestType.All, {"from": user_id, "msg": "Hello, everyone!"})
-        time.sleep(1)
-        client.receive_message()
+        client.send_message(RequestType.All, {"from": user_id, "msg": "Hello, everyone!", "to": []})
     finally:
         client.close()

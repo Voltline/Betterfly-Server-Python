@@ -3,7 +3,10 @@ import select
 import errno
 import logging
 import json
+import threading
 from concurrent.futures import ThreadPoolExecutor
+from queue import Queue
+
 import Utils.Message
 import Utils.config
 from Test.test import RequestType
@@ -44,6 +47,19 @@ class EpollChatServer:
         # ThreadPoolExecutor 用于异步处理复杂任务
         self.executor = ThreadPoolExecutor(max_workers=MAX_WORKER)
 
+        # disconnect_queue 是一个保存需要关闭的fd的队列，保证线程安全
+        self.disconnect_queue = Queue()
+
+        # initialize_queue 是一个保存需要连接初始化的fd的队列，保证线程安全
+        self.initialize_queue = Queue()
+
+        # disconnect_thread 专门处理关闭连接的任务
+        self.disconnect_thread = threading.Thread(target=self.close_worker)
+        self.disconnect_thread.start()
+        # initialize_thread 专门处理连接初始化的任务
+        self.initialize_thread = threading.Thread(target=self.initialize_worker)
+        self.initialize_thread.start()
+
     def run(self):
         try:
             while True:
@@ -59,19 +75,33 @@ class EpollChatServer:
                             if fileno in self.fno_uid:          # 已初始化用户发来的消息
                                 self.executor.submit(self.receive_data, fileno)
                             elif fileno in self.temp_clients:   # 未初始化用户发来的消息
-                                self.executor.submit(self.initialize_client, fileno)
+                                self.initialize_queue.put(fileno)
                             else:
                                 self.logger.warning(f"Received event for unknown fileno {fileno}, ignoring.")
                                 self.epoll.unregister(fileno)
                         # 错误事件
                         elif event & (select.EPOLLHUP | select.EPOLLERR):
-                            self.executor.submit(self.close_client, fileno)
+                            self.disconnect_queue.put((fileno, True))
                 except Exception as e:
                     self.logger.error(f"Error in event loop: {e}", exc_info=True)
         except Exception as e:
             self.logger.error(f"Critical error: {e}", exc_info=True)
         finally:
             self.shutdown()
+
+    def close_worker(self):
+        while True:
+            fileno, abnormal = self.disconnect_queue.get()
+            if fileno is None:
+                break
+            self.close_client(fileno, abnormal)
+
+    def initialize_worker(self):
+        while True:
+            fileno = self.initialize_queue.get()
+            if fileno is None:
+                break
+            self.initialize_client(fileno)
 
     def accept_client(self):
         try:
@@ -87,35 +117,38 @@ class EpollChatServer:
 
     def initialize_client(self, fileno):
         try:
-            client_socket = self.temp_clients[fileno]
-            data = client_socket.recv(40960)
-            if data:
-                # 解析登录包
-                login_packet = Utils.Message.RequestMessage(data.decode())
-                if login_packet.type == RequestType.Login:
-                    user_id = login_packet.from_id
-                    user_name = login_packet.name
-                    if user_id:
-                        self.clients[user_id] = (user_name, fileno, client_socket)
-                        self.fno_uid[fileno] = user_id
-                        self.temp_clients.pop(fileno)  # 从临时存储中删除
-                        self.logger.info(f"User {user_id} - {user_name} connected with fileno {fileno}")
-                    else:
-                        self.logger.warning(f"Received empty user ID from fileno {fileno}")
-                        self.close_client(fileno)
-                else:  # 未初始化用户发送非登录包，直接关闭连接
-                    self.logger.warning(f"Received invalid request from fileno {fileno}")
-                    self.close_client(fileno)
-            else:
-                # 客户端已断开连接
-                self.close_client(fileno)
+            client_socket = self.temp_clients.get(fileno)
+            if client_socket is not None:
+                data = client_socket.recv(40960)
+                if data:
+                    # 解析登录包
+                    login_packet = Utils.Message.RequestMessage(data.decode())
+                    if login_packet.type == RequestType.Login:
+                        user_id = login_packet.from_id
+                        user_name = login_packet.name
+                        if user_id:
+                            self.clients[user_id] = (user_name, fileno, client_socket)
+                            self.fno_uid[fileno] = user_id
+                            self.temp_clients.pop(fileno)  # 从临时存储中删除
+                            self.logger.info(f"User {user_id} - {user_name} connected with fileno {fileno}")
+                            client_socket.send(ResponseMessage.make_server_message(
+                                f"Welcome to Betterfly, {user_name}!").to_json_str().encode())
+                        else:
+                            self.logger.warning(f"Received empty user ID from fileno {fileno}")
+                            self.disconnect_queue.put((fileno, False))
+                    else:  # 未初始化用户发送非登录包，直接关闭连接
+                        self.logger.warning(f"Received invalid request from fileno {fileno}")
+                        self.disconnect_queue.put((fileno, False))
+                else:
+                    # 客户端已断开连接
+                    self.disconnect_queue.put((fileno, True))
         except socket.error as e:
             if e.errno != errno.EAGAIN:
                 self.logger.error(f"Socket error while initializing client for fileno {fileno}: {e}", exc_info=True)
-                self.close_client(fileno)
+                self.disconnect_queue.put((fileno, True))
         except Exception as e:
             self.logger.error(f"Error initializing client: {e}", exc_info=True)
-            self.close_client(fileno)
+            self.disconnect_queue.put((fileno, False))
             self.temp_clients.pop(fileno, None)  # 如果存在则从临时存储中删除
 
     def receive_data(self, fileno):
@@ -130,60 +163,52 @@ class EpollChatServer:
 
         try:
             data = client_socket.recv(40960)
+            self.logger.info(f"Received data from user {user_id}: {data.decode()}")
             if data:
                 task = Utils.Message.RequestMessage(data.decode())
-                # self.logger.info(f"Received data from user {user_id}: {data.decode()} from {client_socket.getpeername()}")
                 if task.type == RequestType.Exit:
-                    self.close_client(fileno)
+                    self.disconnect_queue.put((fileno, False))
                 elif task.type in [RequestType.Single, RequestType.Multi, RequestType.All]:
                     to_ids = task.to_ids
                     msg = task.msg
                     from_id = task.from_id
-                    if task.type != RequestType.All:
-                        for user_id, (user_name, fno, sock) in self.clients.items():
-                            sock.send(ResponseMessage.make_post_message(
-                                task.type, from_id, msg, user_name
-                            ).to_json_str().encode())
+                    user_name = self.clients[user_id][0]
+                    if task.type == RequestType.All:
+                        for uid, (uname, fno, sock) in self.clients.items():
+                            if uid != user_id:
+                                sock.send(ResponseMessage.make_post_message(
+                                    ResponseType.Client, from_id, msg, user_name
+                                ).to_json_str().encode())
                     else:
                         for id in to_ids:
-                            to_info = self.clients.get(id)
-                            if to_info != None:
-                                user_name, fno, sock = to_info
-                                sock.send(ResponseMessage.make_post_message(
-                                    task.type, from_id, msg, user_name
-                                ).to_json_str().encode())
+                            if id != user_id:
+                                to_info = self.clients.get(id)
+                                if to_info != None:
+                                    uname, fno, sock = to_info
+                                    sock.send(ResponseMessage.make_post_message(
+                                        task.type, from_id, msg, user_name
+                                    ).to_json_str().encode())
             else:
                 # 客户端已断开连接
-                self.close_client(fileno)
+                self.disconnect_queue.put((fileno, True))
         except socket.error as e:
             if e.errno != errno.EAGAIN:
                 self.logger.error(f"Socket error while receiving data from fileno {fileno}: {e}", exc_info=True)
-                self.close_client(fileno)
+                self.disconnect_queue.put((fileno, True))
         except Exception as e:
             self.logger.error(f"Error receiving data from client: {e}", exc_info=True)
-            self.close_client(fileno)
+            self.disconnect_queue.put((fileno, True))
 
-    def broadcast_data(self, sender_user_id, data):
-        for uid, (user_name, fno, sock) in self.clients.items():
-            if uid != sender_user_id and uid is not None:
-                try:
-                    sock.send(data)
-                except (socket.error, BrokenPipeError) as e:
-                    self.logger.error(f"Error sending data to user {uid}: {e}", exc_info=True)
-                    self.close_client(fno)
-                except Exception as e:
-                    self.logger.error(f"Unexpected error broadcasting data to user {uid}: {e}", exc_info=True)
-                    self.close_client(fno)
-
-    def close_client(self, fileno):
+    def close_client(self, fileno, abnormal = False):
         user_id = self.fno_uid.get(fileno)
 
         if user_id is not None:
             try:
                 client_socket = self.clients[user_id][2]
-                client_socket.send(ResponseMessage.make_server_message("Goodbye!").to_json_str())
-                self.logger.info(f"Connection closed from {client_socket.getpeername()} for user {user_id}")
-                self.epoll.unregister(fileno)
+                self.logger.info(f"Connection closed from user {user_id}")
+                if not abnormal:
+                    client_socket.send(ResponseMessage.make_server_message("Goodbye!").to_json_str().encode())
+                    self.epoll.unregister(fileno)
                 client_socket.close()
                 self.clients.pop(user_id)
                 self.fno_uid.pop(fileno)
@@ -193,8 +218,9 @@ class EpollChatServer:
             # 如果 fileno 存在于临时客户端中
             try:
                 client_socket = self.temp_clients[fileno]
-                self.logger.info(f"Connection closed from {client_socket.getpeername()} for temporary fileno {fileno}")
-                self.epoll.unregister(fileno)
+                self.logger.info(f"Connection closed from temporary fileno {fileno}")
+                if not abnormal:
+                    self.epoll.unregister(fileno)
                 client_socket.close()
                 self.temp_clients.pop(fileno)
             except Exception as e:
@@ -212,11 +238,11 @@ class EpollChatServer:
                 except Exception as e:
                     self.logger.error(f"Unexpected error sending shutdown message to user {uid}: {e}", exc_info=True)
                 finally:
-                    self.close_client(fno)
+                    self.disconnect_queue.put((fno, False))
 
             # 关闭所有未完成的临时客户端连接
             for fileno, sock in list(self.temp_clients.items()):
-                self.close_client(fileno)
+                self.disconnect_queue.put((fno, False))
 
             # 检查服务器套接字是否有效，避免负数的文件描述符错误
             if self.server_socket.fileno() != -1:
@@ -224,6 +250,8 @@ class EpollChatServer:
                 self.epoll.unregister(self.server_socket.fileno())
                 self.server_socket.close()
             # 关闭 epoll 对象
+            self.disconnect_thread.join()
+            self.initialize_thread.join()
             self.epoll.close()
         except Exception as e:
             self.logger.error(f"Error during shutdown: {e}", exc_info=True)
