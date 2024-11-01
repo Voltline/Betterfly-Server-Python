@@ -2,15 +2,13 @@ import socket
 import select
 import errno
 import logging
-import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
 import Utils.Message
 import Utils.config
-from Test.test import RequestType
-from Utils.Message import ResponseMessage, ResponseType
+from Utils.Message import ResponseMessage, ResponseType, RequestType
 
 MAX_WORKER = 16
 MAX_QUEUE = 200
@@ -168,26 +166,20 @@ class EpollChatServer:
                 task = Utils.Message.RequestMessage(data.decode())
                 if task.type == RequestType.Exit:
                     self.disconnect_queue.put((fileno, False))
-                elif task.type in [RequestType.Single, RequestType.Multi, RequestType.All]:
-                    to_ids = task.to_ids
-                    msg = task.msg
-                    from_id = task.from_id
-                    user_name = self.clients[user_id][0]
-                    if task.type == RequestType.All:
+                elif task.type == RequestType.Post:
+                    to_id = task.to_id
+                    is_group = task.is_group
+
+                    if to_id == -1:
                         for uid, (uname, fno, sock) in self.clients.items():
                             if uid != user_id:
-                                sock.send(ResponseMessage.make_post_message(
-                                    ResponseType.Client, from_id, msg, user_name
-                                ).to_json_str().encode())
+                                sock.send(data)
                     else:
-                        for id in to_ids:
-                            if id != user_id:
-                                to_info = self.clients.get(id)
-                                if to_info != None:
-                                    uname, fno, sock = to_info
-                                    sock.send(ResponseMessage.make_post_message(
-                                        task.type, from_id, msg, user_name
-                                    ).to_json_str().encode())
+                        if to_id != user_id:
+                            to_info = self.clients.get(to_id)
+                            if to_info is not None:
+                                uname, fno, sock = to_info
+                                sock.send(data)
             else:
                 # 客户端已断开连接
                 self.disconnect_queue.put((fileno, True))
@@ -230,15 +222,7 @@ class EpollChatServer:
         try:
             # 发送服务器关闭消息给所有已连接用户
             for uid, (user_name, fno, sock) in list(self.clients.items()):
-                try:
-                    shutdown_message = ResponseMessage.make_server_message("Server Close")
-                    sock.send(shutdown_message.to_json_str().encode())
-                except (socket.error, BrokenPipeError) as e:
-                    self.logger.error(f"Error sending shutdown message to user {uid}: {e}", exc_info=True)
-                except Exception as e:
-                    self.logger.error(f"Unexpected error sending shutdown message to user {uid}: {e}", exc_info=True)
-                finally:
-                    self.disconnect_queue.put((fno, False))
+                self.disconnect_queue.put((fno, False))
 
             # 关闭所有未完成的临时客户端连接
             for fileno, sock in list(self.temp_clients.items()):
