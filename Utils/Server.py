@@ -4,6 +4,7 @@ import errno
 import logging
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime as dt
 from queue import Queue
 
 import Utils.Message
@@ -167,19 +168,23 @@ class EpollChatServer:
                 if task.type == RequestType.Exit:
                     self.disconnect_queue.put((fileno, False))
                 elif task.type == RequestType.Post:
+                    now = dt.now()
+                    task.packet_json["timestamp"] = now.strftime("%Y-%m-%d %H:%M:%S") # 重新授时
+                    task.timestamp = now
                     to_id = task.to_id
                     is_group = task.is_group
-
+                    recv_sock = self.clients.get(user_id)[2]
+                    recv_sock.send(task.to_json_str().encode()) # 重授时后直接回显消息
                     if to_id == -1:
                         for uid, (uname, fno, sock) in self.clients.items():
                             if uid != user_id:
-                                sock.send(data)
+                                sock.send(task.to_json_str().encode())
                     else:
                         if to_id != user_id:
                             to_info = self.clients.get(to_id)
                             if to_info is not None:
                                 uname, fno, sock = to_info
-                                sock.send(data)
+                                sock.send(task.to_json_str().encode())
             else:
                 # 客户端已断开连接
                 self.disconnect_queue.put((fileno, True))

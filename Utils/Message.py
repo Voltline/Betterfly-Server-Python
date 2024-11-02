@@ -22,24 +22,27 @@ class ResponseType:
 
 class RequestMessage:
     def __init__(self, packet: str):
-        packet_json = json.loads(packet)
-        self.type = packet_json["type"]
-        self.from_id = packet_json["from"]
+        self.packet_json = json.loads(packet)
+        self.type = self.packet_json["type"]
+        self.from_id = self.packet_json["from"]
         
         if self.type == RequestType.Post:
-            self.from_user_id = packet_json["from"]
-            self.from_user_name = packet_json["name"]
-            self.is_group = packet_json["is_group"]
-            self.to_id = packet_json["to"]
-            self.msg = packet_json["msg"]
-            self.msg_type = packet_json["msg_type"]
-            self.timestamp = dt.strptime(packet_json["timestamp"], df)
+            self.from_user_id = self.packet_json["from"]
+            self.from_user_name = self.packet_json["name"]
+            self.is_group = self.packet_json["is_group"]
+            self.to_id = self.packet_json["to"]
+            self.msg = self.packet_json["msg"]
+            self.msg_type = self.packet_json["msg_type"]
+            self.timestamp = dt.now()
             self.name = ""
         
         if self.type == RequestType.Login:
             self.to_id = 0
             self.msg = ""
-            self.name = packet_json["name"]
+            self.name = self.packet_json["name"]
+
+    def to_json_str(self):
+        return json.dumps(self.packet_json)
 
 
 class ResponseMessage:
