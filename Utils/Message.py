@@ -25,7 +25,8 @@ class RequestMessage:
         self.packet_json = json.loads(packet)
         self.type = self.packet_json["type"]
         self.from_id = self.packet_json["from"]
-        
+        self.timestamp = dt.strptime(self.packet_json["timestamp"], df) if 'timestamp' in self.packet_json else dt.now()
+
         if self.type == RequestType.Post:
             self.from_user_id = self.packet_json["from"]
             self.from_user_name = self.packet_json["name"]
@@ -33,7 +34,6 @@ class RequestMessage:
             self.to_id = self.packet_json["to"]
             self.msg = self.packet_json["msg"]
             self.msg_type = self.packet_json["msg_type"]
-            self.timestamp = dt.now()
             self.name = ""
         
         if self.type == RequestType.Login:
@@ -69,5 +69,15 @@ class ResponseMessage:
         info["type"] = self.type
         if self.type != ResponseType.Refused:
             info["msg"] = self.msg
+        info['timestamp'] = datetime_str()
         
         return json.dumps(info)
+
+
+def datetime_str(t: dt = None) -> str:
+    """
+    :param t: 不传入则获取当前服务器时间的字符串，传入则获取传入时间对应的字符串
+    """
+    if t is None:
+        t = dt.now()
+    return t.strftime(df)

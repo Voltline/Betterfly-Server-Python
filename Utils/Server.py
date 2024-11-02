@@ -1,3 +1,4 @@
+import datetime
 import socket
 import select
 import errno
@@ -9,7 +10,8 @@ from queue import Queue
 
 import Utils.Message
 import Utils.config
-from Utils.Message import ResponseMessage, ResponseType, RequestType
+from Utils.Message import ResponseMessage, ResponseType, RequestType, df
+from Database.db_operator import DBOperator as DB
 
 MAX_WORKER = 16
 MAX_QUEUE = 200
@@ -61,6 +63,7 @@ class EpollChatServer:
 
     def run(self):
         try:
+            DB.connect()
             while True:
                 try:
                     # 等待事件发生
@@ -125,6 +128,7 @@ class EpollChatServer:
                     if login_packet.type == RequestType.Login:
                         user_id = login_packet.from_id
                         user_name = login_packet.name
+                        last_login = login_packet.timestamp
                         if user_id:
                             self.clients[user_id] = (user_name, fileno, client_socket)
                             self.fno_uid[fileno] = user_id
@@ -132,6 +136,7 @@ class EpollChatServer:
                             self.logger.info(f"User {user_id} - {user_name} connected with fileno {fileno}")
                             client_socket.send(ResponseMessage.make_server_message(
                                 f"Welcome to Betterfly, {user_name}!").to_json_str().encode())
+                            DB.login(user_id, user_name, last_login)
                         else:
                             self.logger.warning(f"Received empty user ID from fileno {fileno}")
                             self.disconnect_queue.put((fileno, False))
@@ -169,7 +174,7 @@ class EpollChatServer:
                     self.disconnect_queue.put((fileno, False))
                 elif task.type == RequestType.Post:
                     now = dt.now()
-                    task.packet_json["timestamp"] = now.strftime("%Y-%m-%d %H:%M:%S") # 重新授时
+                    task.packet_json["timestamp"] = now.strftime(df)  # 重新授时
                     task.timestamp = now
                     to_id = task.to_id
                     is_group = task.is_group
