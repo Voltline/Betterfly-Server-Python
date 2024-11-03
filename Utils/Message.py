@@ -72,8 +72,8 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.Server, -1, msg, "")
 
     @staticmethod
-    def make_user_info_message(user_name: str):
-        return ResponseMessage(ResponseType.UserInfo, 0, user_name, "")
+    def make_user_info_message(user_id: int, user_name: str):
+        return ResponseMessage(ResponseType.UserInfo, 0, user_name, "", user_id)
 
     @staticmethod
     def make_hello_message(from_user_id: int, to_user_id: int):
