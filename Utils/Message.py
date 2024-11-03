@@ -7,21 +7,22 @@ df = "%Y-%m-%d %H:%M:%S"
 
 
 class RequestType(IntEnum):
-    Login = 0
-    Exit = 1
-    Post = 2
+    Login = 0           # 与服务建立连接
+    Exit = 1            # 关闭与服务器的连接
+    Post = 2            # 正常发信
     Key = 3
-    QueryUser = 4
+    QueryUser = 4       # 通过id请求用户信息
+    InsertContact = 5   # 添加联系人
 
 
 class ResponseType(IntEnum):
     Refused = 0
-    Server = 1
-    Post = 2
+    Server = 1      # 服务器消息
+    Post = 2        # 正常发信
     File = 3
-    Warn = 4
+    Warn = 4        # 警告信息
     PubKey = 5
-    UserInfo = 6
+    UserInfo = 6    # 告知被查询的用户信息
 
 
 class RequestMessage:
@@ -39,32 +40,33 @@ class RequestMessage:
             self.to_id = self.packet_json["to"]
             self.msg_type = self.packet_json["msg_type"]
             self.name = ""
-        
+
         elif self.type == RequestType.Login:
             self.to_id = 0
             self.name = self.packet_json["name"]
-
-
 
     def to_json_str(self):
         return json.dumps(self.packet_json)
 
 
 class ResponseMessage:
-    def __init__(self, type: ResponseType, from_id: int, msg: str, from_name: str = ""):
+    def __init__(self, type: ResponseType, from_id: int, msg: str, from_name: str = "",
+                 to_id: int = 0, is_group: bool = None):
         self.type = type
         self.from_id = from_id
         self.msg = msg
         self.from_name = from_name
+        self.to_id = to_id
+        self.is_group = is_group
 
     @staticmethod
     def make_server_message(msg: str):
         return ResponseMessage(ResponseType.Server, -1, msg, "")
-    
+
     @staticmethod
     def make_refused_message(msg: str):
         return ResponseMessage(ResponseType.Refused, -1, "", "")
-    
+
     @staticmethod
     def make_warn_message(msg: str):
         return ResponseMessage(ResponseType.Server, -1, msg, "")
@@ -73,13 +75,23 @@ class ResponseMessage:
     def make_user_info_message(user_name: str):
         return ResponseMessage(ResponseType.UserInfo, 0, user_name, "")
 
+    @staticmethod
+    def make_hello_message(from_user_id: int, to_user_id: int):
+        return ResponseMessage(ResponseType.Post, from_user_id, 'Hello', '', to_user_id, False)
+
     def to_json_str(self):
         info = json.loads("{}")
         info["type"] = self.type
+        info['timestamp'] = datetime_str()
         if self.type != ResponseType.Refused:
             info["msg"] = self.msg
-        info['timestamp'] = datetime_str()
-        
+        if self.from_id > 0:
+            info['from'] = self.from_id
+        if self.to_id > 0:
+            info['to'] = self.to_id
+        if isinstance(self.is_group, bool):
+            info['is_group'] = self.is_group
+
         return json.dumps(info)
 
 

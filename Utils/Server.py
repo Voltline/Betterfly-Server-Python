@@ -192,6 +192,8 @@ class EpollChatServer:
                                 sock.send(task.to_json_str().encode())
                 elif task.type == RequestType.QueryUser:  # 从数据库请求user_name并回信
                     self.process_query_user(user_id, task)
+                elif task.type == RequestType.InsertContact:  # 增加联系人
+                    self.process_insert_contact(task, user_id)
 
             else:
                 # 客户端已断开连接
@@ -203,6 +205,28 @@ class EpollChatServer:
         except Exception as e:
             logger.error(f"Error receiving data from client: {e}", exc_info=True)
             self.disconnect_queue.put((fileno, True))
+
+    def process_insert_contact(self, task, user_id):
+        o_user_id = None  # 要加好友的另一个人的id
+        try:
+            o_user_id = int(task.msg)
+        except Exception() as e:
+            logger.error('err when process InsertContact:')
+            logger.error(e)
+        if o_user_id is None:
+            return
+        db.insertContact(user_id, o_user_id)
+        response = ResponseMessage.make_hello_message(user_id, o_user_id)
+        try:
+            self.clients.get(user_id)[2].send(response.to_json_str().encode())
+        except Exception as e:
+            logger.error("err when process InsertContact while sending:")
+            logger.error(e)
+        try:
+            self.clients.get(o_user_id)[2].send(response.to_json_str().encode())
+        except Exception as e:
+            logger.error("err when process InsertContact while sending:")
+            logger.error(e)
 
     def process_query_user(self, user_id: int, task: Utils.Message.RequestMessage):
         query_user_id = -1

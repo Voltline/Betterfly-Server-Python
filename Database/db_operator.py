@@ -98,9 +98,16 @@ class DBOperator:
         :return: 用户昵称，如果用户不存在则返回None
         """
         stmt = 'CALL query_user(%s);'
-        user_name = None
         user_name = DBOperator.execute(stmt, False, user_id)[0]
         return '' if user_name is None else user_name
+
+    @staticmethod
+    def insertContact(user_id1: int, user_id2: int):
+        """
+        增加联系人
+        """
+        stmt = 'CALL insert_contact(%s, %s);'
+        DBOperator.execute(stmt, False, user_id1, user_id2)
 
 
 db_operator = DBOperator()
