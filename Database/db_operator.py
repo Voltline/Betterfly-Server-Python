@@ -21,6 +21,12 @@ class DBOperator:
     __db: Connection = None
     __cur: Cursor = None
 
+    def __init__(self):
+        self.connect()
+
+    def __del__(self):
+        self.disconnect()
+
     @staticmethod
     def connect():
         """连接到数据库"""
@@ -82,11 +88,19 @@ class DBOperator:
             return 'user_id不得小于1000'
         stmt = 'CALL login(%s,%s,%s);'
         err = ''
-        try:
-            DBOperator.execute(stmt, True, user_id, user_name, last_login)
-        except Exception as e:
-            err = str(e)
-            logger.error(e)
+        DBOperator.execute(stmt, True, user_id, user_name, last_login)
         return err
 
+    @staticmethod
+    def queryUser(user_id: int) -> str:
+        """
+        通过user_id查询user信息
+        :return: 用户昵称，如果用户不存在则返回None
+        """
+        stmt = 'CALL query_user(%s);'
+        user_name = None
+        user_name = DBOperator.execute(stmt, False, user_id)[0]
+        return '' if user_name is None else user_name
 
+
+db_operator = DBOperator()

@@ -1,23 +1,27 @@
 import json
+from enum import IntEnum
 from datetime import datetime as dt
 
 
 df = "%Y-%m-%d %H:%M:%S"
 
-class RequestType:
+
+class RequestType(IntEnum):
     Login = 0
     Exit = 1
     Post = 2
     Key = 3
+    QueryUser = 4
 
 
-class ResponseType:
+class ResponseType(IntEnum):
     Refused = 0
     Server = 1
     Post = 2
     File = 3
     Warn = 4
     PubKey = 5
+    UserInfo = 6
 
 
 class RequestMessage:
@@ -26,20 +30,21 @@ class RequestMessage:
         self.type = self.packet_json["type"]
         self.from_id = self.packet_json["from"]
         self.timestamp = dt.strptime(self.packet_json["timestamp"], df) if 'timestamp' in self.packet_json else dt.now()
+        self.msg = self.packet_json["msg"] if 'msg' in self.packet_json else ''
 
         if self.type == RequestType.Post:
             self.from_user_id = self.packet_json["from"]
             self.from_user_name = self.packet_json["name"]
             self.is_group = self.packet_json["is_group"]
             self.to_id = self.packet_json["to"]
-            self.msg = self.packet_json["msg"]
             self.msg_type = self.packet_json["msg_type"]
             self.name = ""
         
-        if self.type == RequestType.Login:
+        elif self.type == RequestType.Login:
             self.to_id = 0
-            self.msg = ""
             self.name = self.packet_json["name"]
+
+
 
     def to_json_str(self):
         return json.dumps(self.packet_json)
@@ -63,6 +68,10 @@ class ResponseMessage:
     @staticmethod
     def make_warn_message(msg: str):
         return ResponseMessage(ResponseType.Server, -1, msg, "")
+
+    @staticmethod
+    def make_user_info_message(user_name: str):
+        return ResponseMessage(ResponseType.UserInfo, 0, user_name, "")
 
     def to_json_str(self):
         info = json.loads("{}")
