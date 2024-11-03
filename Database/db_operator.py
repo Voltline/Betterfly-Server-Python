@@ -67,8 +67,8 @@ class DBOperator:
                     return (None,)
                 return res
         except sql.err.InterfaceError as e:
-            logger.error(e)
-            logger.error("尝试尝试连接...")
+            logger.error(f"Error while executing SQL: {e}", exc_info=True)
+            logger.info("尝试尝试连接...")
             DBOperator.__cur.close()
             DBOperator.__db.close()
             t.sleep(2)

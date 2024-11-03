@@ -274,9 +274,3 @@ dmypy.json
 
 #npm
 package-lock.json
-
-#ai models
-models/
-
-#keys
-Skybox_backend/skybox_api_config.json

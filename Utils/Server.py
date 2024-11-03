@@ -211,30 +211,30 @@ class EpollChatServer:
         try:
             o_user_id = int(task.msg)
         except Exception() as e:
-            logger.error('err when process InsertContact:')
-            logger.error(e)
+            logger.error(f"Error when process InsertContact: {e}", exc_info=True)
         if o_user_id is None:
             return
         db.insertContact(user_id, o_user_id)
         response = ResponseMessage.make_hello_message(user_id, o_user_id)
         try:
-            self.clients.get(user_id)[2].send(response.to_json_str().encode())
+            user_info = self.clients.get(user_id)
+            if user_info is not None: # 用字典.get后必须判空再执行后续操作，直接采取异常接受会影响效率
+                user_info[2].send(response.to_json_str().encode())
         except Exception as e:
-            logger.error("err when process InsertContact while sending:")
-            logger.error(e)
+            logger.error(f"Error when process InsertContact while sending: {e}", exc_info=True)
         try:
-            self.clients.get(o_user_id)[2].send(response.to_json_str().encode())
+            o_user_info = self.clients.get(user_id)
+            if o_user_info is not None: # 用字典.get后必须判空再执行后续操作，直接采取异常接受会影响效率
+                o_user_info[2].send(response.to_json_str().encode())
         except Exception as e:
-            logger.error("err when process InsertContact while sending:")
-            logger.error(e)
+            logger.error(f"Error when process InsertContact while sending: {e}", exc_info=True)
 
     def process_query_user(self, user_id: int, task: Utils.Message.RequestMessage):
         query_user_id = -1
         try:
             query_user_id = int(task.msg)
         except Exception as e:
-            logger.error("err when process QueryUser:")
-            logger.error(e)
+            logger.error(f"Error when process QueryUser: {e}", exc_info=True)
         query_user_name = db.queryUser(query_user_id)
         response = ResponseMessage.make_user_info_message(query_user_name)
         recv_sock = self.clients.get(user_id)[2]
