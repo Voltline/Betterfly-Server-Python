@@ -236,7 +236,7 @@ class EpollChatServer:
         except Exception as e:
             logger.error(f"Error when process QueryUser: {e}", exc_info=True)
         query_user_name = db.queryUser(query_user_id)
-        response = ResponseMessage.make_user_info_message(query_user_name)
+        response = ResponseMessage.make_user_info_message(query_user_id, query_user_name)
         recv_sock = self.clients.get(user_id)[2]
         recv_sock.send(response.to_json_str().encode())
 
