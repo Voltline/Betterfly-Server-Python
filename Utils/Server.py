@@ -230,7 +230,7 @@ class EpollChatServer:
             logger.error(f"Error when process InsertContact while sending: {e}", exc_info=True)
 
     def process_query_user(self, user_id: int, task: Utils.Message.RequestMessage):
-        query_user_id = -1
+        query_user_id = -100
         try:
             query_user_id = int(task.msg)
         except Exception as e:
