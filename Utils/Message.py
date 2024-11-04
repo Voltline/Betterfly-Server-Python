@@ -30,7 +30,7 @@ class RequestMessage:
         self.packet_json = json.loads(packet)
         self.type = self.packet_json["type"]
         self.from_id = self.packet_json["from"]
-        self.timestamp = dt.strptime(self.packet_json["timestamp"], df) if 'timestamp' in self.packet_json else dt.now()
+        self.timestamp = dt.strptime(self.packet_json["timestamp"], df) if self.packet_json.get("timestamp") else dt.now()
         self.msg = self.packet_json["msg"] if 'msg' in self.packet_json else ''
 
         if self.type == RequestType.Post:
