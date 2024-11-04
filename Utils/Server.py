@@ -12,7 +12,8 @@ import Utils.Message
 import Utils.config
 from Utils.Message import ResponseMessage, ResponseType, RequestType, df
 from Database.db_operator import db_operator as db
-logger = logging.getLogger(__name__)
+from Utils.color_logger import get_logger
+logger = get_logger(__name__)
 
 MAX_WORKER = 16
 MAX_QUEUE = 200
@@ -64,6 +65,7 @@ class EpollChatServer:
     def run(self):
         try:
             db.connect()
+            logger.info('Server started successfully')
             while True:
                 try:
                     # 等待事件发生

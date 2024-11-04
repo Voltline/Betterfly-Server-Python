@@ -2,16 +2,16 @@ import pymysql as sql
 from pymysql.cursors import Cursor
 from pymysql.connections import Connection
 import os
-import logging
 import datetime
 import time as t
 
 from Database.db_setting import DBSetting
+from Utils.color_logger import get_logger
+logger = get_logger(__name__)
 
 root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 config_dir = os.path.join(root_dir, "Config")
 config_fp = os.path.join(config_dir, 'database_config.json')
-logger = logging.getLogger(__name__)
 
 
 class DBOperator:
