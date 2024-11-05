@@ -76,8 +76,8 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.UserInfo, 0, user_name, "", user_id)
 
     @staticmethod
-    def make_hello_message(from_user_id: int, to_user_id: int):
-        return ResponseMessage(ResponseType.Post, from_user_id, 'Hello', '', to_user_id, False)
+    def make_hello_message(from_user_id: int, to_user_id: int, from_user_name: str):
+        return ResponseMessage(ResponseType.Post, from_user_id, "Hello", from_user_name, to_user_id, False)
 
     def to_json_str(self):
         info = json.loads("{}")
@@ -91,6 +91,8 @@ class ResponseMessage:
             info['to'] = self.to_id
         if isinstance(self.is_group, bool):
             info['is_group'] = self.is_group
+        if self.from_name != "":
+            info["name"] = self.from_name
 
         return json.dumps(info)
 

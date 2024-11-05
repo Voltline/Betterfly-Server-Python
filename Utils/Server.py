@@ -212,19 +212,19 @@ class EpollChatServer:
         o_user_id = None  # 要加好友的另一个人的id
         try:
             o_user_id = int(task.msg)
-        except Exception() as e:
+        except Exception as e:
             logger.error(f"Error when process InsertContact: {e}", exc_info=True)
         if o_user_id is None:
             return
         db.insertContact(user_id, o_user_id)
-        response = ResponseMessage.make_hello_message(user_id, o_user_id)
         try:
+            response = ""
             user_info = self.clients.get(user_id)
-            if user_info is not None: # 用字典.get后必须判空再执行后续操作，直接采取异常接受会影响效率
+            if user_info is not None:
+                response = ResponseMessage.make_hello_message(user_id, o_user_id, user_info[1])
+                logger.info(response.to_json_str())
                 user_info[2].send(response.to_json_str().encode())
-        except Exception as e:
-            logger.error(f"Error when process InsertContact while sending: {e}", exc_info=True)
-        try:
+
             o_user_info = self.clients.get(user_id)
             if o_user_info is not None: # 用字典.get后必须判空再执行后续操作，直接采取异常接受会影响效率
                 o_user_info[2].send(response.to_json_str().encode())
@@ -239,8 +239,10 @@ class EpollChatServer:
             logger.error(f"Error when process QueryUser: {e}", exc_info=True)
         query_user_name = db.queryUser(query_user_id)
         response = ResponseMessage.make_user_info_message(query_user_id, query_user_name)
-        recv_sock = self.clients.get(user_id)[2]
-        recv_sock.send(response.to_json_str().encode())
+        recv_info = self.clients.get(user_id)
+        if recv_info is not None:
+            recv_sock = recv_info[2]
+            recv_sock.send(response.to_json_str().encode())
 
     def close_client(self, fileno, abnormal = False):
         user_id = self.fno_uid.get(fileno)
