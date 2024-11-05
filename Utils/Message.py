@@ -28,15 +28,14 @@ class ResponseType(IntEnum):
 class RequestMessage:
     def __init__(self, packet: str):
         self.packet_json = json.loads(packet)
-        self.type: str = self.packet_json["type"]
-        self.from_id: int = self.packet_json["from"]
+        self.type: str = self.packet_json["type"] if 'type' in self.packet_json else -1
+        self.from_id: int = self.packet_json["from"] if "from" in self.packet_json else 0
         self.to_id: int = self.packet_json["to"] if 'to' in self.packet_json else 0
         self.timestamp: dt = dt.strptime(self.packet_json["timestamp"], df) if self.packet_json.get("timestamp") else dt.now()
         self.msg: str = self.packet_json["msg"] if 'msg' in self.packet_json else ''
 
         if self.type == RequestType.Post:
-            self.from_user_id = self.packet_json["from"]
-            self.from_user_name = self.packet_json["name"]
+            self.name = self.packet_json["name"]
             self.is_group = self.packet_json["is_group"]
             self.msg_type = self.packet_json["msg_type"]
             self.name = ""

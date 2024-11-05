@@ -120,6 +120,7 @@ class EpollChatServer:
             logger.error(f"Error accepting new client: {e}", exc_info=True)
 
     def initialize_client(self, fileno):
+        logger.info(f"Initializing client {fileno}")
         try:
             client_socket = self.temp_clients.get(fileno)
             if client_socket is not None:
@@ -194,7 +195,7 @@ class EpollChatServer:
                 elif task.type == RequestType.QueryUser:  # 从数据库请求user_name并回信
                     self.process_query_user(user_id, task)
                 elif task.type == RequestType.InsertContact:  # 增加联系人
-                    self.process_insert_contact(task, user_id)
+                    self.process_insert_contact(task)
 
             else:
                 # 客户端已断开连接
@@ -208,7 +209,7 @@ class EpollChatServer:
             self.disconnect_queue.put((fileno, True))
 
     def process_insert_contact(self, task):
-        user_id = task.from_user_id  # 发起加好友的人的id
+        user_id = task.from_id  # 发起加好友的人的id
         o_user_id = task.to_id  # 要加好友的另一个人的id
         if o_user_id is None or user_id is None:
             logger.warning(f'In insert contact: user_id or o_user_id is None for task {task.to_json_str()}')
