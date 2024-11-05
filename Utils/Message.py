@@ -28,16 +28,16 @@ class ResponseType(IntEnum):
 class RequestMessage:
     def __init__(self, packet: str):
         self.packet_json = json.loads(packet)
-        self.type = self.packet_json["type"]
-        self.from_id = self.packet_json["from"]
-        self.timestamp = dt.strptime(self.packet_json["timestamp"], df) if self.packet_json.get("timestamp") else dt.now()
-        self.msg = self.packet_json["msg"] if 'msg' in self.packet_json else ''
+        self.type: str = self.packet_json["type"]
+        self.from_id: int = self.packet_json["from"]
+        self.to_id: int = self.packet_json["to"] if 'to' in self.packet_json else 0
+        self.timestamp: dt = dt.strptime(self.packet_json["timestamp"], df) if self.packet_json.get("timestamp") else dt.now()
+        self.msg: str = self.packet_json["msg"] if 'msg' in self.packet_json else ''
 
         if self.type == RequestType.Post:
             self.from_user_id = self.packet_json["from"]
             self.from_user_name = self.packet_json["name"]
             self.is_group = self.packet_json["is_group"]
-            self.to_id = self.packet_json["to"]
             self.msg_type = self.packet_json["msg_type"]
             self.name = ""
 
@@ -76,7 +76,7 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.UserInfo, 0, user_name, "", user_id)
 
     @staticmethod
-    def make_hello_message(from_user_id: int, to_user_id: int, from_user_name: str):
+    def make_hello_message(from_user_id: int, to_user_id: int, from_user_name: str = ''):
         return ResponseMessage(ResponseType.Post, from_user_id, "Hello", from_user_name, to_user_id, False)
 
     def to_json_str(self):
@@ -91,7 +91,7 @@ class ResponseMessage:
             info['to'] = self.to_id
         if isinstance(self.is_group, bool):
             info['is_group'] = self.is_group
-        if self.from_name != "":
+        if self.from_name:
             info["name"] = self.from_name
 
         return json.dumps(info)

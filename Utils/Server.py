@@ -10,7 +10,7 @@ from queue import Queue
 
 import Utils.Message
 import Utils.config
-from Utils.Message import ResponseMessage, ResponseType, RequestType, df
+from Utils.Message import ResponseMessage, ResponseType, RequestMessage, RequestType, df
 from Database.db_operator import db_operator as db
 from Utils.color_logger import get_logger
 logger = get_logger(__name__)
@@ -180,8 +180,7 @@ class EpollChatServer:
                     task.timestamp = now
                     to_id = task.to_id
                     is_group = task.is_group
-                    recv_sock = self.clients.get(user_id)[2]
-                    recv_sock.send(task.to_json_str().encode())  # 重授时后直接回显消息
+                    self.send_message(user_id, task)  # 重授时后直接回显消息
                     if to_id == -1:
                         for uid, (uname, fno, sock) in self.clients.items():
                             if uid != user_id:
@@ -208,41 +207,23 @@ class EpollChatServer:
             logger.error(f"Error receiving data from client: {e}", exc_info=True)
             self.disconnect_queue.put((fileno, True))
 
-    def process_insert_contact(self, task, user_id):
-        o_user_id = None  # 要加好友的另一个人的id
-        try:
-            o_user_id = int(task.msg)
-        except Exception as e:
-            logger.error(f"Error when process InsertContact: {e}", exc_info=True)
-        if o_user_id is None:
+    def process_insert_contact(self, task):
+        user_id = task.from_user_id  # 发起加好友的人的id
+        o_user_id = task.to_id  # 要加好友的另一个人的id
+        if o_user_id is None or user_id is None:
+            logger.warning(f'In insert contact: user_id or o_user_id is None for task {task.to_json_str()}')
             return
         db.insertContact(user_id, o_user_id)
-        try:
-            response = ""
-            user_info = self.clients.get(user_id)
-            if user_info is not None:
-                response = ResponseMessage.make_hello_message(user_id, o_user_id, user_info[1])
-                logger.info(response.to_json_str())
-                user_info[2].send(response.to_json_str().encode())
 
-            o_user_info = self.clients.get(user_id)
-            if o_user_info is not None: # 用字典.get后必须判空再执行后续操作，直接采取异常接受会影响效率
-                o_user_info[2].send(response.to_json_str().encode())
-        except Exception as e:
-            logger.error(f"Error when process InsertContact while sending: {e}", exc_info=True)
+        response = ResponseMessage.make_hello_message(user_id, o_user_id, db.queryUser(user_id))
+        self.send_message(user_id, response)
+        self.send_message(o_user_id, response)
 
     def process_query_user(self, user_id: int, task: Utils.Message.RequestMessage):
-        query_user_id = -100
-        try:
-            query_user_id = int(task.msg)
-        except Exception as e:
-            logger.error(f"Error when process QueryUser: {e}", exc_info=True)
+        query_user_id = task.to_id
         query_user_name = db.queryUser(query_user_id)
         response = ResponseMessage.make_user_info_message(query_user_id, query_user_name)
-        recv_info = self.clients.get(user_id)
-        if recv_info is not None:
-            recv_sock = recv_info[2]
-            recv_sock.send(response.to_json_str().encode())
+        self.send_message(user_id, response)
 
     def close_client(self, fileno, abnormal = False):
         user_id = self.fno_uid.get(fileno)
@@ -292,6 +273,14 @@ class EpollChatServer:
             self.epoll.close()
         except Exception as e:
             logger.error(f"Error during shutdown: {e}", exc_info=True)
+
+    def send_message(self, user_id: int, message: ResponseMessage | RequestMessage):
+        recv_info = self.clients.get(user_id)
+        if recv_info is None:
+            logger.warning(f'Failed to get clients for user: {user_id}')
+            logger.warning(f'While sending message: {message.to_json_str()}')
+        recv_sock = recv_info[2]
+        recv_sock.send(message.to_json_str().encode())
 
 
 if __name__ == "__main__":
