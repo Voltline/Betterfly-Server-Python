@@ -13,6 +13,7 @@ class RequestType(IntEnum):
     Key = 3
     QueryUser = 4       # 通过id请求用户信息
     InsertContact = 5   # 添加联系人
+    QueryGroup = 6      # 添加群组
 
 
 class ResponseType(IntEnum):
@@ -23,6 +24,7 @@ class ResponseType(IntEnum):
     Warn = 4        # 警告信息
     PubKey = 5
     UserInfo = 6    # 告知被查询的用户信息
+    GroupInfo = 7   # 告知被查询的群组信息
 
 
 class RequestMessage:
@@ -73,6 +75,10 @@ class ResponseMessage:
     @staticmethod
     def make_user_info_message(user_id: int, user_name: str):
         return ResponseMessage(ResponseType.UserInfo, 0, user_name, "", user_id)
+
+    @staticmethod
+    def make_group_info_message(group_id: int, group_name: str):
+        return ResponseMessage(ResponseType.GroupInfo, 0, group_name, "", group_id)
 
     @staticmethod
     def make_hello_message(from_user_id: int, to_user_id: int, from_user_name: str = ''):

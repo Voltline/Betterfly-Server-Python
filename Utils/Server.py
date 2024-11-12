@@ -192,10 +192,12 @@ class EpollChatServer:
                             if to_info is not None:
                                 uname, fno, sock = to_info
                                 sock.send(task.to_json_str().encode())
-                elif task.type == RequestType.QueryUser:  # 从数据库请求user_name并回信
+                elif task.type == RequestType.QueryUser:  # 从数据库请求用户信息
                     self.process_query_user(user_id, task)
                 elif task.type == RequestType.InsertContact:  # 增加联系人
                     self.process_insert_contact(task)
+                elif task.type == RequestType.QueryGroup:  # 从数据库请求群组信息
+                    self.process_query_group(user_id, task)
 
             else:
                 # 客户端已断开连接
@@ -207,6 +209,16 @@ class EpollChatServer:
         except Exception as e:
             logger.error(f"Error receiving data from client: {e}", exc_info=True)
             self.disconnect_queue.put((fileno, True))
+
+    def process_query_user(self, user_id: int, task: Utils.Message.RequestMessage):
+        """
+        :param user_id: 发起请求的用户id
+        :param task: 请求内容
+        """
+        query_user_id = task.to_id
+        query_user_name = db.queryUser(query_user_id)
+        response = ResponseMessage.make_user_info_message(query_user_id, query_user_name)
+        self.send_message(user_id, response)
 
     def process_insert_contact(self, task):
         user_id = task.from_id  # 发起加好友的人的id
@@ -220,10 +232,14 @@ class EpollChatServer:
         self.send_message(user_id, response)
         self.send_message(o_user_id, response)
 
-    def process_query_user(self, user_id: int, task: Utils.Message.RequestMessage):
-        query_user_id = task.to_id
-        query_user_name = db.queryUser(query_user_id)
-        response = ResponseMessage.make_user_info_message(query_user_id, query_user_name)
+    def process_query_group(self, user_id: int, task: Utils.Message.RequestMessage):
+        """
+        :param user_id: 发起请求的用户id
+        :param task: 请求内容
+        """
+        query_group_id = task.to_id
+        query_group_name = db.queryGroup(query_group_id)
+        response = ResponseMessage.make_group_info_message(query_group_id, query_group_name)
         self.send_message(user_id, response)
 
     def close_client(self, fileno, abnormal = False):

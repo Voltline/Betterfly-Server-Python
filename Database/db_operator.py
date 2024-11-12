@@ -95,7 +95,7 @@ class DBOperator:
     def queryUser(user_id: int) -> str:
         """
         通过user_id查询user信息
-        :return: 用户昵称，如果用户不存在则返回None
+        :return: 用户昵称，如果用户不存在则返回空字符串
         """
         stmt = 'CALL query_user(%s);'
         user_name = DBOperator.execute(stmt, False, user_id)[0]
@@ -108,6 +108,28 @@ class DBOperator:
         """
         stmt = 'CALL insert_contact(%s, %s);'
         DBOperator.execute(stmt, False, user_id1, user_id2)
+
+    @staticmethod
+    def queryGroup(group_id: int) -> str:
+        """
+        通过group_id请求group信息
+        :return: 群组名称，如果群组不存在则返回空字符串
+        """
+        stmt = 'CALL query_group(%s);'
+        group_name = DBOperator.execute(stmt, False, group_id)[0]
+        return '' if group_name is None else group_name
+
+    @staticmethod
+    def insertGroup(group_id: int, group_name: str):
+        """插入一个新group"""
+        stmt = 'CALL insert_group(%s, %s);'
+        DBOperator.execute(stmt, False, group_id, group_name)
+
+    @staticmethod
+    def insertGroupUser(group_id: int, user_id: int):
+        """向group里添加user"""
+        stmt = 'CALL insert_group_user(%s, %s);'
+        DBOperator.execute(stmt, False, group_id, user_id)
 
 
 db_operator = DBOperator()
