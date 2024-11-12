@@ -197,7 +197,9 @@ class EpollChatServer:
                 elif task.type == RequestType.InsertContact:  # 增加联系人
                     self.process_insert_contact(task)
                 elif task.type == RequestType.QueryGroup:  # 从数据库请求群组信息
-                    self.process_query_group(user_id, task)
+                    self.process_query_group(task)
+                elif task.type == RequestType.InsertGroup:  # 增加群组
+                    self.process_insert_group(task)
 
             else:
                 # 客户端已断开连接
@@ -220,7 +222,7 @@ class EpollChatServer:
         response = ResponseMessage.make_user_info_message(query_user_id, query_user_name)
         self.send_message(user_id, response)
 
-    def process_insert_contact(self, task):
+    def process_insert_contact(self, task: Utils.Message.RequestMessage):
         user_id = task.from_id  # 发起加好友的人的id
         o_user_id = task.to_id  # 要加好友的另一个人的id
         if o_user_id is None or user_id is None:
@@ -232,14 +234,23 @@ class EpollChatServer:
         self.send_message(user_id, response)
         self.send_message(o_user_id, response)
 
-    def process_query_group(self, user_id: int, task: Utils.Message.RequestMessage):
+    def process_query_group(self, task: Utils.Message.RequestMessage):
         """
-        :param user_id: 发起请求的用户id
         :param task: 请求内容
         """
+        user_id = task.from_id
         query_group_id = task.to_id
         query_group_name = db.queryGroup(query_group_id)
         response = ResponseMessage.make_group_info_message(query_group_id, query_group_name)
+        self.send_message(user_id, response)
+
+    def process_insert_group(self, task: Utils.Message.RequestMessage):
+        user_id = task.from_id
+        group_id = task.to_id
+        group_name = task.msg
+        db.insertGroup(group_id, group_name)  # TODO: 数据库插入时的错误消息处理
+        db.insertGroupUser(group_id, user_id)
+        response = ResponseMessage.make_hello_message(0, group_id, group_name, True)
         self.send_message(user_id, response)
 
     def close_client(self, fileno, abnormal = False):

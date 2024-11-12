@@ -13,7 +13,8 @@ class RequestType(IntEnum):
     Key = 3
     QueryUser = 4       # 通过id请求用户信息
     InsertContact = 5   # 添加联系人
-    QueryGroup = 6      # 添加群组
+    QueryGroup = 6      # 通过id请求群组信息
+    InsertGroup = 7     # 添加群组
 
 
 class ResponseType(IntEnum):
@@ -81,8 +82,8 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.GroupInfo, 0, group_name, "", group_id)
 
     @staticmethod
-    def make_hello_message(from_user_id: int, to_user_id: int, from_user_name: str = ''):
-        return ResponseMessage(ResponseType.Post, from_user_id, "Hello", from_user_name, to_user_id, False)
+    def make_hello_message(from_user_id: int, to_id: int, from_user_name: str = '', is_group: bool = False):
+        return ResponseMessage(ResponseType.Post, from_user_id, "Hello", from_user_name, to_id, is_group)
 
     def to_json_str(self):
         info = json.loads("{}")
