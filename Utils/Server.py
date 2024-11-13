@@ -287,7 +287,7 @@ class EpollChatServer:
                 self.disconnect_queue.put((fno, False))
 
             # 关闭所有未完成的临时客户端连接
-            for fileno, sock in list(self.temp_clients.items()):
+            for fno, sock in list(self.temp_clients.items()):
                 self.disconnect_queue.put((fno, False))
 
             # 检查服务器套接字是否有效，避免负数的文件描述符错误
