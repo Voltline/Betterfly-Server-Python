@@ -240,8 +240,9 @@ class EpollChatServer:
         """
         user_id = task.from_id
         query_group_id = task.to_id
+        during_add = task.msg != ''  # 是否是加群/建群之前的检查性查询
         query_group_name = db.queryGroup(query_group_id)
-        response = ResponseMessage.make_group_info_message(query_group_id, query_group_name)
+        response = ResponseMessage.make_group_info_message(query_group_id, query_group_name, during_add)
         self.send_message(user_id, response)
 
     def process_insert_group(self, task: Utils.Message.RequestMessage):

@@ -78,8 +78,9 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.UserInfo, 0, user_name, "", user_id)
 
     @staticmethod
-    def make_group_info_message(group_id: int, group_name: str):
-        return ResponseMessage(ResponseType.GroupInfo, 0, group_name, "", group_id)
+    def make_group_info_message(group_id: int, group_name: str, during_add: bool = False):
+        from_id = -1 if during_add else 0
+        return ResponseMessage(ResponseType.GroupInfo, from_id, group_name, "", group_id)
 
     @staticmethod
     def make_hello_message(from_user_id: int, to_id: int, from_user_name: str = '', is_group: bool = False):
@@ -91,9 +92,9 @@ class ResponseMessage:
         info['timestamp'] = datetime_str()
         if self.type != ResponseType.Refused:
             info["msg"] = self.msg
-        if self.from_id > 0:
+        if self.from_id is not None:
             info['from'] = self.from_id
-        if self.to_id > 0:
+        if self.to_id is not None:
             info['to'] = self.to_id
         if isinstance(self.is_group, bool):
             info['is_group'] = self.is_group
