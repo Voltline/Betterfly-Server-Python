@@ -7,14 +7,15 @@ df = "%Y-%m-%d %H:%M:%S"
 
 
 class RequestType(IntEnum):
-    Login = 0           # 与服务建立连接
-    Exit = 1            # 关闭与服务器的连接
-    Post = 2            # 正常发信
+    Login = 0               # 与服务建立连接
+    Exit = 1                # 关闭与服务器的连接
+    Post = 2                # 正常发信
     Key = 3
-    QueryUser = 4       # 通过id请求用户信息
-    InsertContact = 5   # 添加联系人
-    QueryGroup = 6      # 通过id请求群组信息
-    InsertGroup = 7     # 添加群组
+    QueryUser = 4           # 通过id请求用户信息
+    InsertContact = 5       # 添加联系人
+    QueryGroup = 6          # 通过id请求群组信息
+    InsertGroup = 7         # 添加群组
+    InsertGroupUser = 8     # 向群组中添加用户
 
 
 class ResponseType(IntEnum):
@@ -83,8 +84,9 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.GroupInfo, from_id, group_name, "", group_id)
 
     @staticmethod
-    def make_hello_message(from_user_id: int, to_id: int, from_user_name: str = '', is_group: bool = False):
-        return ResponseMessage(ResponseType.Post, from_user_id, "Hello", from_user_name, to_id, is_group)
+    def make_hello_message(from_user_id: int, to_id: int, from_user_name: str = '',
+                           is_group: bool = False, msg: str = "Hello"):
+        return ResponseMessage(ResponseType.Post, from_user_id, msg, from_user_name, to_id, is_group)
 
     def to_json_str(self):
         info = json.loads("{}")

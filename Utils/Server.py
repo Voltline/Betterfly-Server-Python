@@ -235,9 +235,6 @@ class EpollChatServer:
         self.send_message(o_user_id, response)
 
     def process_query_group(self, task: Utils.Message.RequestMessage):
-        """
-        :param task: 请求内容
-        """
         user_id = task.from_id
         query_group_id = task.to_id
         during_add = task.msg != ''  # 是否是加群/建群之前的检查性查询
@@ -252,6 +249,13 @@ class EpollChatServer:
         db.insertGroup(group_id, group_name)  # TODO: 数据库插入时的错误消息处理
         db.insertGroupUser(group_id, user_id)
         response = ResponseMessage.make_hello_message(0, group_id, group_name, True)
+        self.send_message(user_id, response)
+
+    def process_insert_group_user(self, task: Utils.Message.RequestMessage):
+        user_id = task.from_id
+        group_id = task.to_id
+        db.insertGroupUser(group_id, user_id)
+        response = ResponseMessage.make_hello_message(user_id, group_id, '', True, "Hi")
         self.send_message(user_id, response)
 
     def close_client(self, fileno, abnormal = False):
@@ -308,6 +312,7 @@ class EpollChatServer:
         if recv_info is None:
             logger.warning(f'Failed to get clients for user: {user_id}')
             logger.warning(f'While sending message: {message.to_json_str()}')
+            return
         recv_sock = recv_info[2]
         recv_sock.send(message.to_json_str().encode())
 
