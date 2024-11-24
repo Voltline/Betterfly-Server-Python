@@ -1,9 +1,9 @@
 # RequestMsg报文格式
-> RequestType的定义，其中Key暂不使用
+> RequestType的定义
 ```cpp
 enum RequestType
 {
-    Login, Exit, Post, Key, QueryUser, InsertContact
+    Login, Exit, Post, Key, QueryUser, InsertContact, QueryGroup, InsertGroup, InsertGroupUser, File
 };
 ```
 
@@ -61,12 +61,24 @@ enum RequestType
 }
 ```
 
+## RequestType.File
+> 文件上传/下载请求
+```json
+{
+    "type": RequestType.File,
+    "from": from_user_id,
+    "file_hash": SHA512(file),
+    "file_suffix": file_suffix,
+    "operation": "upload"/"download"
+}
+```
+
 # ResponseMsg报文格式
 > ResponseType的定义，其中File，Pubkey暂不使用
 ```cpp
 enum ResponseType
 {
-    Refused, Server, Post, File, Warn, PubKey, UserInfo
+    Refused, Server, Post, File, Warn, PubKey, UserInfo, GroupInfo
 };
 ```
 ## ResponseType.Refused
@@ -101,6 +113,15 @@ enum ResponseType
 }
 ```
 
+## ResponseType.File
+> 文件下载/上传链接/已存在通知反馈
+```json
+{
+    "type": ResponseType.File,
+    "content": upload_url/download_url/"existed"
+}
+```
+
 ## ResponseType.Warn
 > 服务器警告
 ```json
@@ -119,3 +140,4 @@ enum ResponseType
     "to": from_user_id
 }
 ```
+

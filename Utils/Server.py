@@ -12,6 +12,7 @@ import Utils.Message
 import Utils.config
 from Utils.Message import ResponseMessage, ResponseType, RequestMessage, RequestType, df
 from Database.db_operator import db_operator as db
+from Utils.cos import COS as cos
 from Utils.color_logger import get_logger
 logger = get_logger(__name__)
 

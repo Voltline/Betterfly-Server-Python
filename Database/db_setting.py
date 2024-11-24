@@ -1,5 +1,6 @@
 import json
 
+
 class DBSetting():
     """数据库的设置信息"""
 

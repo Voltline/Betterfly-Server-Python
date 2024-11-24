@@ -10,21 +10,22 @@ class RequestType(IntEnum):
     Login = 0               # 与服务建立连接
     Exit = 1                # 关闭与服务器的连接
     Post = 2                # 正常发信
-    Key = 3
+    Key = 3                 # 本地发送对称密钥
     QueryUser = 4           # 通过id请求用户信息
     InsertContact = 5       # 添加联系人
     QueryGroup = 6          # 通过id请求群组信息
     InsertGroup = 7         # 添加群组
     InsertGroupUser = 8     # 向群组中添加用户
+    File = 9                # 文件上传/下载请求
 
 
 class ResponseType(IntEnum):
     Refused = 0
     Server = 1      # 服务器消息
     Post = 2        # 正常发信
-    File = 3
+    File = 3        # 文件下载/上传链接/已存在通知
     Warn = 4        # 警告信息
-    PubKey = 5
+    PubKey = 5      # RSA公钥响应信息
     UserInfo = 6    # 告知被查询的用户信息
     GroupInfo = 7   # 告知被查询的群组信息
 
