@@ -182,6 +182,7 @@ class EpollChatServer:
                     task.timestamp = now
                     to_id = task.to_id
                     is_group = task.is_group
+                    db.insertMessage(task.from_id, task.to_id, task.timestamp, task.msg, task.msg_type, task.is_group)
                     self.send_message(user_id, task)  # 重授时后直接回显消息
                     if to_id == -1:
                         for uid, (uname, fno, sock) in self.clients.items():

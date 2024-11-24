@@ -61,6 +61,39 @@ enum RequestType
 }
 ```
 
+## RequestType.QueryGroup
+> 通过id请求群组信息
+```json
+{
+    "type": RequestType.QueryGroup,
+    "from": from_user_id,
+    "to":   group_id,
+    "msg":  如果不存在该字段或为空字符串，则说明该查询的结果需要保存到用户本地数据库
+            否则说明该查询的结果不需要保存到用户本地数据库
+}
+```
+
+## RequestType.InsertGroup
+> 添加群组
+```json
+{
+    "type": RequestType.InsertGroup,
+    "from": from_user_id,
+    "to":   group_id,
+    "msg":  group_name,
+}
+```
+
+## RequestType.InsertGroupUser
+> 向群组中添加用户
+```json
+{
+    "type": RequestType.InsertGroupUser,
+    "from": from_user_id,
+    "to":   group_id,
+}
+```
+
 ## RequestType.File
 > 文件上传/下载请求
 ```json
@@ -141,3 +174,13 @@ enum ResponseType
 }
 ```
 
+## ResponseType.GroupInfo
+> 好友查询信息
+```json
+{
+    "type": ResponseType.GroupInfo,
+    "from": 0:该查询需要保存; -1：该查询不需要保存
+    "to":   from_user_id
+    "msg":  query_group_name,
+}
+```
