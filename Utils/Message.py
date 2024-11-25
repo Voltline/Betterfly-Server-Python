@@ -49,19 +49,25 @@ class RequestMessage:
             self.to_id = 0
             self.name = self.packet_json["name"]
 
+        elif self.type == RequestType.File:
+            self.file_hash = self.packet_json["file_hash"]
+            self.file_suffix = self.packet_json["file_suffix"]
+            self.file_operation = self.packet_json["operation"]
+
     def to_json_str(self):
         return json.dumps(self.packet_json)
 
 
 class ResponseMessage:
     def __init__(self, type: ResponseType, from_id: int, msg: str, from_name: str = "",
-                 to_id: int = 0, is_group: bool = None):
+                 to_id: int = 0, is_group: bool = None, content: str = ""):
         self.type = type
         self.from_id = from_id
         self.msg = msg
         self.from_name = from_name
         self.to_id = to_id
         self.is_group = is_group
+        self.content = content
 
     @staticmethod
     def make_server_message(msg: str):
@@ -70,6 +76,10 @@ class ResponseMessage:
     @staticmethod
     def make_refused_message(msg: str):
         return ResponseMessage(ResponseType.Refused, -1, "", "")
+
+    @staticmethod
+    def make_file_message(content: str):
+        return ResponseMessage(ResponseType.File, 0, "", content=content)
 
     @staticmethod
     def make_warn_message(msg: str):
@@ -103,6 +113,8 @@ class ResponseMessage:
             info['is_group'] = self.is_group
         if self.from_name:
             info["name"] = self.from_name
+        if self.content:
+            info['content'] = self.content
 
         return json.dumps(info)
 

@@ -137,5 +137,18 @@ class DBOperator:
         stmt = 'CALL insert_message(%s, %s, %s, %s, %s, %s);'
         DBOperator.execute(stmt, False, from_user_id, to_id, timestamp, text, type, is_group)
 
+    @staticmethod
+    def queryFile(file_hash: str, file_suffix: str):
+        """查询文件是否存在"""
+        stmt = 'CALL query_file(%s, %s);'
+        f_hash = DBOperator.execute(stmt, False, file_hash, file_suffix)
+        return False if f_hash[0] is None else True
+
+    @staticmethod
+    def insertFile(file_hash: str, file_suffix: str):
+        """向数据库中插入文件信息"""
+        stmt = 'CALL insert_file(%s, %s);'
+        DBOperator.execute(stmt, False, file_hash, file_suffix)
+
 
 db_operator = DBOperator()

@@ -12,7 +12,7 @@ import Utils.Message
 import Utils.config
 from Utils.Message import ResponseMessage, ResponseType, RequestMessage, RequestType, df
 from Database.db_operator import db_operator as db
-from Utils.cos import COS as cos
+from Utils.cos import cos_operator as cos
 from Utils.color_logger import get_logger
 logger = get_logger(__name__)
 
@@ -202,6 +202,8 @@ class EpollChatServer:
                     self.process_query_group(task)
                 elif task.type == RequestType.InsertGroup:  # 增加群组
                     self.process_insert_group(task)
+                elif task.type == RequestType.File:
+                    self.process_file_operation(task)
 
             else:
                 # 客户端已断开连接
@@ -258,6 +260,28 @@ class EpollChatServer:
         group_id = task.to_id
         db.insertGroupUser(group_id, user_id)
         response = ResponseMessage.make_hello_message(user_id, group_id, '', True, "Hi")
+        self.send_message(user_id, response)
+
+    def process_file_operation(self, task: Utils.Message.RequestMessage):
+        user_id = task.from_id
+        file_hash = task.file_hash
+        file_suffix = task.file_suffix
+        operation = task.file_operation
+        file_exist = db.queryFile(file_hash, file_suffix)
+        file_name = file_hash + "." + file_suffix
+        content = ""
+        if operation == "upload":
+            if not file_exist:
+                content = cos.get_presigned_upload_url("betterfly-1251588291", file_name)
+                db.insertFile(file_hash, file_suffix)
+            else:
+                content = "Existed"
+        elif operation == "download":
+            if not file_exist:
+                content = "Not Exist"
+            else:
+                content = cos.get_presigned_download_url("betterfly-1251588291", file_name)
+        response = ResponseMessage.make_file_message(content)
         self.send_message(user_id, response)
 
     def close_client(self, fileno, abnormal = False):

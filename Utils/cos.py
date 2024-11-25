@@ -205,3 +205,6 @@ class COS:
             Key=key
         )
         return response
+
+
+cos_operator = COS()
