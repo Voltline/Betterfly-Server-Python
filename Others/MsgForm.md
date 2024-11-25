@@ -63,6 +63,8 @@ enum RequestType
 
 ## RequestType.QueryGroup
 > 通过id请求群组信息
+> 
+> 查询没有添加的群聊信息，获取已添加群聊的信息
 ```json
 {
     "type": RequestType.QueryGroup,
