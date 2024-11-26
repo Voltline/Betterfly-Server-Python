@@ -4,6 +4,7 @@ import select
 import errno
 import logging
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime as dt
 from queue import Queue
@@ -141,6 +142,7 @@ class EpollChatServer:
                             client_socket.send(ResponseMessage.make_server_message(
                                 f"Welcome to Betterfly, {user_name}!").to_json_str().encode())
                             db.login(user_id, user_name, last_login)
+                            self.sync_message(user_id, last_login)
                         else:
                             logger.warning(f"Received empty user ID from fileno {fileno}")
                             self.disconnect_queue.put((fileno, False))
@@ -284,6 +286,21 @@ class EpollChatServer:
         response = ResponseMessage.make_file_message(content)
         self.send_message(user_id, response)
 
+    def sync_message(self, user_id: int, last_login: dt | str):
+        """给客户端发送未登录期间收到的消息"""
+        msg_list = db.querySyncMessage(user_id, last_login)
+        for msg in msg_list:
+            response = ResponseMessage(
+                type=ResponseType.Post,
+                from_id=msg[0],
+                to_id=msg[1],
+                timestamp=msg[2],
+                msg=msg[3],
+                msg_type=msg[4],
+                is_group=msg[5],
+            )
+            self.send_message(user_id, response)
+
     def close_client(self, fileno, abnormal = False):
         user_id = self.fno_uid.get(fileno)
 
@@ -341,6 +358,8 @@ class EpollChatServer:
             return
         recv_sock = recv_info[2]
         recv_sock.send(message.to_json_str().encode())
+        logger.info(f'Sent message to user{user_id}: {message.to_json_str()}')
+        time.sleep(0.05)
 
 
 if __name__ == "__main__":

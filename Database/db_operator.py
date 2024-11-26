@@ -150,5 +150,12 @@ class DBOperator:
         stmt = 'CALL insert_file(%s, %s);'
         DBOperator.execute(stmt, False, file_hash, file_suffix)
 
+    @staticmethod
+    def querySyncMessage(user_id: int, last_login: datetime.datetime | str):
+        """查询未登录期间收到的消息"""
+        stmt = 'CALL query_sync_message(%s, %s);'
+        msg_list = DBOperator.execute(stmt, True, user_id, last_login)
+        return tuple() if msg_list[0] is None else msg_list
+
 
 db_operator = DBOperator()

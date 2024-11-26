@@ -62,7 +62,7 @@ class RequestMessage:
 class ResponseMessage:
     def __init__(self, type: ResponseType, from_id: int, msg: str, from_name: str = "",
                  to_id: int = 0, is_group: bool = None, content: str = "",
-                 timestamp: dt = None):
+                 timestamp: dt = None, msg_type: str = None):
         self.type = type
         self.from_id = from_id
         self.msg = msg
@@ -71,6 +71,7 @@ class ResponseMessage:
         self.is_group = is_group
         self.content = content
         self.timestamp = timestamp
+        self.msg_type = msg_type
 
     @staticmethod
     def make_server_message(msg: str):
@@ -122,6 +123,8 @@ class ResponseMessage:
             info["name"] = self.from_name
         if self.content:
             info['content'] = self.content
+        if self.msg_type:
+            info['msg_type'] = self.msg_type
 
         return json.dumps(info)
 
