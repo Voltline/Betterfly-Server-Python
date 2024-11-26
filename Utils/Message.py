@@ -1,6 +1,7 @@
 import json
 from enum import IntEnum
 from datetime import datetime as dt
+from Database.db_operator import db_operator as db
 
 
 df = "%Y-%m-%d %H:%M:%S"
@@ -60,7 +61,8 @@ class RequestMessage:
 
 class ResponseMessage:
     def __init__(self, type: ResponseType, from_id: int, msg: str, from_name: str = "",
-                 to_id: int = 0, is_group: bool = None, content: str = ""):
+                 to_id: int = 0, is_group: bool = None, content: str = "",
+                 timestamp: dt = None):
         self.type = type
         self.from_id = from_id
         self.msg = msg
@@ -68,6 +70,7 @@ class ResponseMessage:
         self.to_id = to_id
         self.is_group = is_group
         self.content = content
+        self.timestamp = timestamp
 
     @staticmethod
     def make_server_message(msg: str):
@@ -97,12 +100,16 @@ class ResponseMessage:
     @staticmethod
     def make_hello_message(from_user_id: int, to_id: int, from_user_name: str = '',
                            is_group: bool = False, msg: str = "Hello"):
-        return ResponseMessage(ResponseType.Post, from_user_id, msg, from_user_name, to_id, is_group)
+        """此消息会在创建时录入数据库"""
+        response = ResponseMessage(ResponseType.Post, from_user_id, msg, from_user_name, to_id, is_group,
+                                   timestamp=dt.now())
+        db.insertMessage(response.from_id, response.to_id, response.timestamp, response.msg, "text", response.is_group)
+        return response
 
     def to_json_str(self):
         info = json.loads("{}")
         info["type"] = self.type
-        info['timestamp'] = datetime_str()
+        info['timestamp'] = datetime_str(self.timestamp)
         if self.type != ResponseType.Refused:
             info["msg"] = self.msg
         if self.from_id is not None:
