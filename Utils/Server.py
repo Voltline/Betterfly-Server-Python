@@ -288,6 +288,8 @@ class EpollChatServer:
 
     def sync_message(self, user_id: int, last_login: dt | str):
         """给客户端发送未登录期间收到的消息"""
+        if not last_login:
+            last_login = '2000-01-01 00:00:00'
         msg_list = db.querySyncMessage(user_id, last_login)
         for msg in msg_list:
             response = ResponseMessage(
