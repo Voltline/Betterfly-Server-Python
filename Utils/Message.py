@@ -3,32 +3,31 @@ from enum import IntEnum
 from datetime import datetime as dt
 from Database.db_operator import db_operator as db
 
-
 df = "%Y-%m-%d %H:%M:%S"
 
 
 class RequestType(IntEnum):
-    Login = 0               # 与服务建立连接
-    Exit = 1                # 关闭与服务器的连接
-    Post = 2                # 正常发信
-    Key = 3                 # 本地发送对称密钥
-    QueryUser = 4           # 通过id请求用户信息
-    InsertContact = 5       # 添加联系人
-    QueryGroup = 6          # 通过id请求群组信息
-    InsertGroup = 7         # 添加群组
-    InsertGroupUser = 8     # 向群组中添加用户
-    File = 9                # 文件上传/下载请求
+    Login = 0  # 与服务建立连接
+    Exit = 1  # 关闭与服务器的连接
+    Post = 2  # 正常发信
+    Key = 3  # 本地发送对称密钥
+    QueryUser = 4  # 通过id请求用户信息
+    InsertContact = 5  # 添加联系人
+    QueryGroup = 6  # 通过id请求群组信息
+    InsertGroup = 7  # 添加群组
+    InsertGroupUser = 8  # 向群组中添加用户
+    File = 9  # 文件上传/下载请求
 
 
 class ResponseType(IntEnum):
     Refused = 0
-    Server = 1      # 服务器消息
-    Post = 2        # 正常发信
-    File = 3        # 文件下载/上传链接/已存在通知
-    Warn = 4        # 警告信息
-    PubKey = 5      # RSA公钥响应信息
-    UserInfo = 6    # 告知被查询的用户信息
-    GroupInfo = 7   # 告知被查询的群组信息
+    Server = 1  # 服务器消息
+    Post = 2  # 正常发信
+    File = 3  # 文件下载/上传链接/已存在通知
+    Warn = 4  # 警告信息
+    PubKey = 5  # RSA公钥响应信息
+    UserInfo = 6  # 告知被查询的用户信息
+    GroupInfo = 7  # 告知被查询的群组信息
 
 
 class RequestMessage:
@@ -37,7 +36,8 @@ class RequestMessage:
         self.type: str = self.packet_json["type"] if 'type' in self.packet_json else -1
         self.from_id: int = self.packet_json["from"] if "from" in self.packet_json else 0
         self.to_id: int = self.packet_json["to"] if 'to' in self.packet_json else 0
-        self.timestamp: dt = dt.strptime(self.packet_json["timestamp"], df) if self.packet_json.get("timestamp") else dt.now()
+        self.timestamp: dt = dt.strptime(self.packet_json["timestamp"], df) if self.packet_json.get(
+            "timestamp") else dt.now()
         self.msg: str = self.packet_json["msg"] if 'msg' in self.packet_json else ''
 
         if self.type == RequestType.Post:
@@ -62,7 +62,7 @@ class RequestMessage:
 class ResponseMessage:
     def __init__(self, type: ResponseType, from_id: int, msg: str, from_name: str = "",
                  to_id: int = 0, is_group: bool = None, content: str = "",
-                 timestamp: dt = None, msg_type: str = None):
+                 timestamp: dt = None, msg_type: str = None, file_op: str = None):
         self.type = type
         self.from_id = from_id
         self.msg = msg
@@ -72,6 +72,7 @@ class ResponseMessage:
         self.content = content
         self.timestamp = timestamp
         self.msg_type = msg_type
+        self.file_op = file_op
 
     @staticmethod
     def make_server_message(msg: str):
@@ -82,8 +83,12 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.Refused, -1, "", "")
 
     @staticmethod
-    def make_file_message(file_full_name: str, content: str):
-        return ResponseMessage(ResponseType.File, 0, file_full_name, content=content)
+    def make_upload_message(file_full_name: str, content: str):
+        return ResponseMessage(ResponseType.File, 0, file_full_name, content=content, file_op="upload")
+
+    @staticmethod
+    def make_download_message(file_full_name: str, content: str):
+        return ResponseMessage(ResponseType.File, 0, file_full_name, content=content, file_op="download")
 
     @staticmethod
     def make_warn_message(msg: str):
@@ -125,6 +130,8 @@ class ResponseMessage:
             info['content'] = self.content
         if self.msg_type:
             info['msg_type'] = self.msg_type
+        if self.file_op:
+            info['file_op'] = self.file_op
 
         return json.dumps(info)
 

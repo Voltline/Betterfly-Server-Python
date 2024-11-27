@@ -272,24 +272,24 @@ class EpollChatServer:
         file_exist = db.queryFile(file_hash, file_suffix)
         file_name = file_hash + "." + file_suffix
         content = ""
+        response = ""
         if operation == "upload":
             if not file_exist:
                 content = cos.get_presigned_upload_url("betterfly-1251588291", file_name)
                 db.insertFile(file_hash, file_suffix)
             else:
                 content = "Existed"
+            response = ResponseMessage.make_upload_message(file_name, content)
         elif operation == "download":
             if not file_exist:
                 content = "Not Exist"
             else:
                 content = cos.get_presigned_download_url("betterfly-1251588291", file_name)
-        response = ResponseMessage.make_file_message(file_name, content)
+            response = ResponseMessage.make_download_message(file_name, content)
         self.send_message(user_id, response)
 
     def sync_message(self, user_id: int, last_login: dt | str):
         """给客户端发送未登录期间收到的消息"""
-        if not last_login:
-            last_login = '2000-01-01 00:00:00'
         msg_list = db.querySyncMessage(user_id, last_login)
         for msg in msg_list:
             response = ResponseMessage(

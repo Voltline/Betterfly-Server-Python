@@ -154,7 +154,8 @@ enum ResponseType
 {
     "type": ResponseType.File,
     "msg": file_name(file_hash.file_suffix),
-    "content": upload_url/download_url/"Existed"/"Not exist"
+    "content": upload_url/download_url/"Existed"/"Not exist",
+    "file_op": "upload"/"download"
 }
 ```
 
