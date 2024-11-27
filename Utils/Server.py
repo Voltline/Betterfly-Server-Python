@@ -283,7 +283,7 @@ class EpollChatServer:
                 content = "Not Exist"
             else:
                 content = cos.get_presigned_download_url("betterfly-1251588291", file_name)
-        response = ResponseMessage.make_file_message(content)
+        response = ResponseMessage.make_file_message(file_name, content)
         self.send_message(user_id, response)
 
     def sync_message(self, user_id: int, last_login: dt | str):

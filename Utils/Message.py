@@ -82,8 +82,8 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.Refused, -1, "", "")
 
     @staticmethod
-    def make_file_message(content: str):
-        return ResponseMessage(ResponseType.File, 0, "", content=content)
+    def make_file_message(file_full_name: str, content: str):
+        return ResponseMessage(ResponseType.File, 0, file_full_name, content=content)
 
     @staticmethod
     def make_warn_message(msg: str):
