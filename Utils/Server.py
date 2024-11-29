@@ -184,17 +184,11 @@ class EpollChatServer:
                     to_id = task.to_id
                     is_group = task.is_group
                     db.insertMessage(task.from_id, task.to_id, task.timestamp, task.msg, task.msg_type, task.is_group)
-                    self.send_message(user_id, task)  # 重授时后直接回显消息
+
                     if is_group:
-                        if to_id == -1:
-                            for uid, (uname, fno, sock) in self.clients.items():
-                                if uid != user_id:
-                                    sock.send(task.to_json_str().encode())
-                        else:
-                            for uid in db.queryGroupUser(to_id):
-                                if uid != user_id:
-                                    self.send_message(uid, task)
+                        self.send_message(to_id, task, is_group=True)
                     else:
+                        self.send_message(user_id, task)  # 重授时后直接回显消息
                         if to_id != user_id:
                             self.send_message(to_id, task)
                 elif task.type == RequestType.QueryUser:  # 从数据库请求用户信息
@@ -205,6 +199,8 @@ class EpollChatServer:
                     self.process_query_group(task)
                 elif task.type == RequestType.InsertGroup:  # 增加群组
                     self.process_insert_group(task)
+                elif task.type == RequestType.InsertGroupUser:  # 加入群组
+                    self.process_insert_group_user(task)
                 elif task.type == RequestType.File:
                     self.process_file_operation(task)
 
@@ -256,14 +252,14 @@ class EpollChatServer:
         db.insertGroup(group_id, group_name)  # TODO: 数据库插入时的错误消息处理
         db.insertGroupUser(group_id, user_id)
         response = ResponseMessage.make_hello_message(0, group_id, group_name, True)
-        self.send_message(user_id, response)
+        self.send_message(group_id, response, is_group=True)
 
     def process_insert_group_user(self, task: Utils.Message.RequestMessage):
         user_id = task.from_id
         group_id = task.to_id
         db.insertGroupUser(group_id, user_id)
         response = ResponseMessage.make_hello_message(user_id, group_id, '', True, "Hi")
-        self.send_message(user_id, response)
+        self.send_message(group_id, response, True)
 
     def process_file_operation(self, task: Utils.Message.RequestMessage):
         user_id = task.from_id
@@ -355,16 +351,24 @@ class EpollChatServer:
         except Exception as e:
             logger.error(f"Error during shutdown: {e}", exc_info=True)
 
-    def send_message(self, user_id: int, message: ResponseMessage | RequestMessage):
-        recv_info = self.clients.get(user_id)
-        if recv_info is None:
-            logger.warning(f'Failed to get clients for user: {user_id}')
-            logger.warning(f'While sending message: {message.to_json_str()}')
-            return
-        recv_sock = recv_info[2]
-        recv_sock.send(message.to_json_str().encode())
-        logger.info(f'Sent message to user{user_id}: {message.to_json_str()}')
-        time.sleep(0.05)
+    def send_message(self, to_id: int, message: ResponseMessage | RequestMessage, is_group = False):
+        to_list = list()
+        if is_group:
+            if to_id == -1:
+                for uid, (uname, fno, sock) in self.clients.items():
+                    sock.send(message.to_json_str().encode())
+                return
+            to_list.extend(db.queryGroupUser(to_id))
+        else:
+            to_list.append(to_id)
+        for user_id in to_list:
+            recv_info = self.clients.get(user_id)
+            if recv_info is None:
+                logger.warning(f'Failed to get clients for user: {user_id}    While sending message: {message.to_json_str()}')
+                continue
+            recv_sock = recv_info[2]
+            recv_sock.send(message.to_json_str().encode())
+            logger.info(f'Sent message to user{user_id}: {message.to_json_str()}')
 
 
 if __name__ == "__main__":

@@ -162,6 +162,6 @@ class DBOperator:
         """查询一个群聊的所有成员id"""
         stmt = 'CALL query_group_user(%s);'
         user_ids = DBOperator.execute(stmt, True, group_id)
-        return user_ids
+        return (user_id for user_id_tuple in user_ids for user_id in user_id_tuple)
 
 db_operator = DBOperator()
