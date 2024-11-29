@@ -157,5 +157,11 @@ class DBOperator:
         msg_list = DBOperator.execute(stmt, True, user_id, last_login)
         return msg_list
 
+    @staticmethod
+    def queryGroupUser(group_id: int):
+        """查询一个群聊的所有成员id"""
+        stmt = 'CALL query_group_user(%s);'
+        user_ids = DBOperator.execute(stmt, True, group_id)
+        return user_ids
 
 db_operator = DBOperator()

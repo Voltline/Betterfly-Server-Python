@@ -33,7 +33,7 @@ class ResponseType(IntEnum):
 class RequestMessage:
     def __init__(self, packet: str):
         self.packet_json = json.loads(packet)
-        self.type: str = self.packet_json["type"] if 'type' in self.packet_json else -1
+        self.type: int = self.packet_json["type"] if 'type' in self.packet_json else -1
         self.from_id: int = self.packet_json["from"] if "from" in self.packet_json else 0
         self.to_id: int = self.packet_json["to"] if 'to' in self.packet_json else 0
         self.timestamp: dt = dt.strptime(self.packet_json["timestamp"], df) if self.packet_json.get(

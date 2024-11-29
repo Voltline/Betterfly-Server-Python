@@ -1,4 +1,3 @@
-import datetime
 import socket
 import select
 import errno
@@ -186,16 +185,18 @@ class EpollChatServer:
                     is_group = task.is_group
                     db.insertMessage(task.from_id, task.to_id, task.timestamp, task.msg, task.msg_type, task.is_group)
                     self.send_message(user_id, task)  # 重授时后直接回显消息
-                    if to_id == -1:
-                        for uid, (uname, fno, sock) in self.clients.items():
-                            if uid != user_id:
-                                sock.send(task.to_json_str().encode())
+                    if is_group:
+                        if to_id == -1:
+                            for uid, (uname, fno, sock) in self.clients.items():
+                                if uid != user_id:
+                                    sock.send(task.to_json_str().encode())
+                        else:
+                            for uid in db.queryGroupUser(to_id):
+                                if uid != user_id:
+                                    self.send_message(uid, task)
                     else:
                         if to_id != user_id:
-                            to_info = self.clients.get(to_id)
-                            if to_info is not None:
-                                uname, fno, sock = to_info
-                                sock.send(task.to_json_str().encode())
+                            self.send_message(to_id, task)
                 elif task.type == RequestType.QueryUser:  # 从数据库请求用户信息
                     self.process_query_user(user_id, task)
                 elif task.type == RequestType.InsertContact:  # 增加联系人
