@@ -346,6 +346,8 @@ class EpollChatServer:
                 self.epoll.unregister(self.server_socket.fileno())
                 self.server_socket.close()
             # 关闭 epoll 对象
+            self.disconnect_queue.put((None, None))
+            self.initialize_queue.put(None)
             self.disconnect_thread.join()
             self.initialize_thread.join()
             self.epoll.close()
