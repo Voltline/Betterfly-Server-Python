@@ -10,6 +10,7 @@ from queue import Queue
 
 import Utils.Message
 import Utils.config
+import Utils.RegexUtil
 from Utils.Message import ResponseMessage, ResponseType, RequestMessage, RequestType, df
 from Database.db_operator import db_operator as db
 from Utils.cos import cos_operator as cos
@@ -171,39 +172,40 @@ class EpollChatServer:
             return
 
         try:
-            data = client_socket.recv(40960)
-            logger.info(f"Received data from user {user_id}: {data.decode()}")
-            if data:
-                task = Utils.Message.RequestMessage(data.decode())
-                if task.type == RequestType.Exit:  # 执行退出操作
-                    self.disconnect_queue.put((fileno, False))
-                elif task.type == RequestType.Post:  # 正常发消息
-                    now = dt.now()
-                    task.packet_json["timestamp"] = now.strftime(df)  # 重新授时
-                    task.timestamp = now
-                    to_id = task.to_id
-                    is_group = task.is_group
-                    db.insertMessage(task.from_id, task.to_id, task.timestamp, task.msg, task.msg_type, task.is_group)
+            all_dt = client_socket.recv(40960)
+            logger.info(f"Received data from user {user_id}: {all_dt.decode()}")
+            if all_dt:
+                datum = Utils.RegexUtil.extract_data_from_braces(all_dt.decode()) # TODO: 目前还是只有正则匹配
+                for data in datum:
+                    task = Utils.Message.RequestMessage(data)
+                    if task.type == RequestType.Exit:  # 执行退出操作
+                        self.disconnect_queue.put((fileno, False))
+                    elif task.type == RequestType.Post:  # 正常发消息
+                        now = dt.now()
+                        task.packet_json["timestamp"] = now.strftime(df)  # 重新授时
+                        task.timestamp = now
+                        to_id = task.to_id
+                        is_group = task.is_group
+                        db.insertMessage(task.from_id, task.to_id, task.timestamp, task.msg, task.msg_type, task.is_group)
 
-                    if is_group:
-                        self.send_message(to_id, task, is_group=True)
-                    else:
-                        self.send_message(user_id, task)  # 重授时后直接回显消息
-                        if to_id != user_id:
-                            self.send_message(to_id, task)
-                elif task.type == RequestType.QueryUser:  # 从数据库请求用户信息
-                    self.process_query_user(user_id, task)
-                elif task.type == RequestType.InsertContact:  # 增加联系人
-                    self.process_insert_contact(task)
-                elif task.type == RequestType.QueryGroup:  # 从数据库请求群组信息
-                    self.process_query_group(task)
-                elif task.type == RequestType.InsertGroup:  # 增加群组
-                    self.process_insert_group(task)
-                elif task.type == RequestType.InsertGroupUser:  # 加入群组
-                    self.process_insert_group_user(task)
-                elif task.type == RequestType.File:
-                    self.process_file_operation(task)
-
+                        if is_group:
+                            self.send_message(to_id, task, is_group=True)
+                        else:
+                            self.send_message(user_id, task)  # 重授时后直接回显消息
+                            if to_id != user_id:
+                                self.send_message(to_id, task)
+                    elif task.type == RequestType.QueryUser:  # 从数据库请求用户信息
+                        self.process_query_user(user_id, task)
+                    elif task.type == RequestType.InsertContact:  # 增加联系人
+                        self.process_insert_contact(task)
+                    elif task.type == RequestType.QueryGroup:  # 从数据库请求群组信息
+                        self.process_query_group(task)
+                    elif task.type == RequestType.InsertGroup:  # 增加群组
+                        self.process_insert_group(task)
+                    elif task.type == RequestType.InsertGroupUser:  # 加入群组
+                        self.process_insert_group_user(task)
+                    elif task.type == RequestType.File:
+                        self.process_file_operation(task)
             else:
                 # 客户端已断开连接
                 self.disconnect_queue.put((fileno, True))
