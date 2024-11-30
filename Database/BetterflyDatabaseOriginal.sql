@@ -4,13 +4,14 @@
  Source Server         : Lighthouse Server
  Source Server Type    : MySQL
  Source Server Version : 80039 (8.0.39-0ubuntu0.22.04.1)
+ Source Host           :
  Source Schema         : Betterfly
 
  Target Server Type    : MySQL
  Target Server Version : 80039 (8.0.39-0ubuntu0.22.04.1)
  File Encoding         : 65001
 
- Date: 24/11/2024 16:53:47
+ Date: 30/11/2024 22:41:14
 */
 
 SET NAMES utf8mb4;
@@ -71,6 +72,16 @@ CREATE TABLE `messages` (
   `text` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '消息内容',
   `type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'text' COMMENT '消息类型(text, image, gif, file)',
   `is_group` int NOT NULL DEFAULT '0' COMMENT 'to_id是群组还是用户'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ----------------------------
+-- Table structure for user_apn_tokens
+-- ----------------------------
+DROP TABLE IF EXISTS `user_apn_tokens`;
+CREATE TABLE `user_apn_tokens` (
+  `user_id` int NOT NULL COMMENT '用户ID',
+  `user_apn_token` varchar(255) NOT NULL COMMENT '苹果设备的APN Token',
+  PRIMARY KEY (`user_id`,`user_apn_token`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
@@ -168,6 +179,29 @@ END
 delimiter ;
 
 -- ----------------------------
+-- Procedure structure for insert_message
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `insert_message`;
+delimiter ;;
+CREATE DEFINER=`lty`@`%` PROCEDURE `insert_message`(
+	IN _from INT, IN _to INT,
+	IN _timestamp DATETIME,
+	IN _text VARCHAR(1024), IN _type VARCHAR(10),
+	IN _is_group INT
+)
+BEGIN
+	IF _timestamp IS NULL THEN
+		INSERT INTO messages(from_user_id, to_id, `text`, type, is_group)
+		VALUES(_from, _to, _text, _type, _is_group);
+	ELSE
+		INSERT INTO messages(from_user_id, to_id, `text`, type, is_group, `timestamp`)
+		VALUES(_from, _to, _text, _type, _is_group, _timestamp);
+	END IF;
+END
+;;
+delimiter ;
+
+-- ----------------------------
 -- Procedure structure for insert_user
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `insert_user`;
@@ -176,6 +210,25 @@ CREATE DEFINER=`lty`@`%` PROCEDURE `insert_user`(IN user_id INT,IN user_name VAR
 BEGIN
 	INSERT INTO users(user_id, user_name)
 	VALUES (user_id, user_name);
+END
+;;
+delimiter ;
+
+-- ----------------------------
+-- Procedure structure for insert_user_apn_token
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `insert_user_apn_token`;
+delimiter ;;
+CREATE DEFINER=`voltline`@`%` PROCEDURE `insert_user_apn_token`(user_id int,  user_apn_token varchar(255))
+BEGIN
+	declare apn_token varchar(255) default '';
+	select user_apn_token into apn_token
+	from user_apn_tokens uat
+	where user_id = uat.user_id
+	and user_apn_token = uat.user_apn_token;
+	IF apn_token = '' THEN
+  insert into user_apn_tokens values(user_id, user_apn_token);
+	END IF;
 END
 ;;
 delimiter ;
@@ -242,6 +295,48 @@ END
 delimiter ;
 
 -- ----------------------------
+-- Procedure structure for query_group_user
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `query_group_user`;
+delimiter ;;
+CREATE DEFINER=`lty`@`%` PROCEDURE `query_group_user`(IN _group_id INT)
+BEGIN
+	SELECT user_id
+	FROM group_users
+	WHERE group_id = _group_id;
+END
+;;
+delimiter ;
+
+-- ----------------------------
+-- Procedure structure for query_sync_message
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `query_sync_message`;
+delimiter ;;
+CREATE DEFINER=`lty`@`%` PROCEDURE `query_sync_message`(IN _id INT, IN _last_login DATETIME)
+BEGIN
+	CREATE TEMPORARY TABLE user_groups AS 
+	SELECT group_id
+	FROM group_users
+	WHERE user_id = _id
+	UNION
+	SELECT -1 AS group_id;
+	
+	SELECT *
+	FROM messages
+	WHERE `timestamp` > _last_login
+	AND (
+		is_group = 0 AND (to_id = _id OR from_user_id = _id)
+		OR
+		is_group <> 0 AND to_id IN (SELECT * FROM user_groups)
+	);
+	
+	DROP TEMPORARY TABLE user_groups;
+END
+;;
+delimiter ;
+
+-- ----------------------------
 -- Procedure structure for query_user
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `query_user`;
@@ -251,6 +346,20 @@ BEGIN
 	SELECT user_name
 	FROM users
 	WHERE user_id = _user_id;
+END
+;;
+delimiter ;
+
+-- ----------------------------
+-- Procedure structure for query_user_apn_tokens
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `query_user_apn_tokens`;
+delimiter ;;
+CREATE DEFINER=`voltline`@`%` PROCEDURE `query_user_apn_tokens`(user_id int)
+BEGIN
+  select user_apn_token
+	from user_apn_tokens apn
+	where user_id = apn.user_id;
 END
 ;;
 delimiter ;

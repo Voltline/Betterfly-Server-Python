@@ -11,10 +11,12 @@ from queue import Queue
 import Utils.Message
 import Utils.config
 import Utils.RegexUtil
+from Utils.apns import APNsClient, make_notification_payload
 from Utils.Message import ResponseMessage, ResponseType, RequestMessage, RequestType, df
 from Database.db_operator import db_operator as db
 from Utils.cos import cos_operator as cos
 from Utils.color_logger import get_logger
+
 logger = get_logger(__name__)
 
 MAX_WORKER = 16
@@ -44,8 +46,8 @@ class EpollChatServer:
         self.epoll.register(self.server_socket.fileno(), select.EPOLLIN)
 
         # 字典来保存客户端信息
-        self.clients = {}       # {UserID: (Username, FileNo, socket)}
-        self.fno_uid = {}       # {FileNo: UserID}
+        self.clients = {}  # {UserID: (Username, FileNo, socket)}
+        self.fno_uid = {}  # {FileNo: UserID}
         self.temp_clients = {}  # 用于临时存储未分配用户ID的连接 {FileNo: socket}
 
         # ThreadPoolExecutor 用于异步处理复杂任务
@@ -64,6 +66,9 @@ class EpollChatServer:
         self.initialize_thread = threading.Thread(target=self.initialize_worker)
         self.initialize_thread.start()
 
+        # apns 用于专门处理苹果设备的推送请求
+        self.apns = APNsClient()
+
     def run(self):
         try:
             db.connect()
@@ -78,9 +83,9 @@ class EpollChatServer:
                             self.accept_client()
                         # 客户端发来消息
                         elif event & select.EPOLLIN:
-                            if fileno in self.fno_uid:          # 已初始化用户发来的消息
+                            if fileno in self.fno_uid:  # 已初始化用户发来的消息
                                 self.executor.submit(self.receive_data, fileno)
-                            elif fileno in self.temp_clients:   # 未初始化用户发来的消息
+                            elif fileno in self.temp_clients:  # 未初始化用户发来的消息
                                 self.initialize_queue.put(fileno)
                             else:
                                 logger.warning(f"Received event for unknown fileno {fileno}, ignoring.")
@@ -175,7 +180,7 @@ class EpollChatServer:
             all_dt = client_socket.recv(40960)
             logger.info(f"Received data from user {user_id}: {all_dt.decode()}")
             if all_dt:
-                datum = Utils.RegexUtil.extract_data_from_braces(all_dt.decode()) # TODO: 目前还是只有正则匹配
+                datum = Utils.RegexUtil.extract_data_from_braces(all_dt.decode())  # TODO: 目前还是只有正则匹配
                 for data in datum:
                     task = Utils.Message.RequestMessage(data)
                     if task.type == RequestType.Exit:  # 执行退出操作
@@ -186,7 +191,8 @@ class EpollChatServer:
                         task.timestamp = now
                         to_id = task.to_id
                         is_group = task.is_group
-                        db.insertMessage(task.from_id, task.to_id, task.timestamp, task.msg, task.msg_type, task.is_group)
+                        db.insertMessage(task.from_id, task.to_id, task.timestamp, task.msg, task.msg_type,
+                                         task.is_group)
 
                         if is_group:
                             self.send_message(to_id, task, is_group=True)
@@ -206,6 +212,9 @@ class EpollChatServer:
                         self.process_insert_group_user(task)
                     elif task.type == RequestType.File:
                         self.process_file_operation(task)
+                    elif task.type == RequestType.APNToken:
+                        self.process_user_apn_token(task)
+
             else:
                 # 客户端已断开连接
                 self.disconnect_queue.put((fileno, True))
@@ -287,6 +296,11 @@ class EpollChatServer:
             response = ResponseMessage.make_download_message(file_name, content)
         self.send_message(user_id, response)
 
+    def process_user_apn_token(self, task: Utils.Message.RequestMessage):
+        user_id = task.from_id
+        user_apn_token = task.apn_token
+        db.insertUserAPNToken(user_id, user_apn_token)  # 添加用户的APN Token用于后续发送通知
+
     def sync_message(self, user_id: int, last_login: dt | str):
         """给客户端发送未登录期间收到的消息"""
         msg_list = db.querySyncMessage(user_id, last_login)
@@ -302,7 +316,7 @@ class EpollChatServer:
             )
             self.send_message(user_id, response)
 
-    def close_client(self, fileno, abnormal = False):
+    def close_client(self, fileno, abnormal=False):
         user_id = self.fno_uid.get(fileno)
 
         if user_id is not None:
@@ -353,7 +367,7 @@ class EpollChatServer:
         except Exception as e:
             logger.error(f"Error during shutdown: {e}", exc_info=True)
 
-    def send_message(self, to_id: int, message: ResponseMessage | RequestMessage, is_group = False):
+    def send_message(self, to_id: int, message: ResponseMessage | RequestMessage, is_group=False):
         to_list = list()
         if is_group:
             if to_id == -1:
@@ -363,14 +377,36 @@ class EpollChatServer:
             to_list.extend(db.queryGroupUser(to_id))
         else:
             to_list.append(to_id)
+
+        from_id = message.from_id
+        user_msg = ""
+        if message.msg_type == "file":
+            user_msg = "[文件]"
+        elif message.msg_type == "gif":
+            user_msg = "[表情符号]"
+        elif message.msg_type == "image":
+            user_msg = "[图片]"
+        else:
+            user_msg = message.msg
+
+        user_name = db.queryUser(from_id)
+
         for user_id in to_list:
+            if user_id != from_id:
+                apn_list = db.queryUserAPNTokens(user_id)
+                for apn_token in apn_list:
+                    if apn_token[0] is not None:
+                        self.apns.send_notification(apn_token[0], make_notification_payload(user_name, user_msg))
             recv_info = self.clients.get(user_id)
+
             if recv_info is None:
-                logger.warning(f'Failed to get clients for user: {user_id}    While sending message: {message.to_json_str()}')
+                logger.warning(
+                    f'Failed to get clients for user: {user_id}    While sending message: {message.to_json_str()}')
                 continue
             recv_sock = recv_info[2]
             recv_sock.send(message.to_json_str().encode())
-            logger.info(f'Sent message to user{user_id}: {message.to_json_str()}')
+
+            logger.info(f'Sent message to user {user_id}: {message.to_json_str()}')
 
 
 if __name__ == "__main__":

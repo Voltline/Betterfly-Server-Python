@@ -164,4 +164,18 @@ class DBOperator:
         user_ids = DBOperator.execute(stmt, True, group_id)
         return (user_id for user_id_tuple in user_ids for user_id in user_id_tuple)
 
+    @staticmethod
+    def insertUserAPNToken(from_user_id: int, user_apn_token: str):
+        """保存用户的APN Token"""
+        stmt = 'CALL insert_user_apn_token(%s, %s);'
+        DBOperator.execute(stmt, False, from_user_id, user_apn_token)
+
+    @staticmethod
+    def queryUserAPNTokens(from_user_id: int):
+        """查询用户的所有APN Token"""
+        stmt = 'CALL query_user_apn_tokens(%s);'
+        tokens = DBOperator.execute(stmt, True, from_user_id)
+        return tokens
+
+
 db_operator = DBOperator()
