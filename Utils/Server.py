@@ -148,27 +148,31 @@ class EpollChatServer:
         try:
             client_socket = self.temp_clients.get(fileno)
             if client_socket is not None:
-                data = client_socket.recv(40960)
-                if data:
-                    # 解析登录包
-                    login_packet = Utils.Message.RequestMessage(data.decode())
-                    if login_packet.type == RequestType.Login:
-                        user_id = login_packet.from_id
-                        user_name = login_packet.name
-                        last_login = login_packet.timestamp
-                        if user_id:
-                            self.clients[user_id] = (user_name, fileno, client_socket)
-                            self.fno_uid[fileno] = user_id
-                            self.temp_clients.pop(fileno)  # 从临时存储中删除
-                            logger.info(f"User {user_id} - {user_name} connected with fileno {fileno}")
-                            client_socket.send(ResponseMessage.make_server_message(
-                                f"Welcome to Betterfly, {user_name}!").to_json_str().encode())
-                            db.login(user_id, user_name, last_login)
-                            self.sync_message(user_id, last_login)
-                        else:
-                            logger.warning(f"Received empty user ID from fileno {fileno}")
-                            self.disconnect_queue.put((fileno, False))
-                    else:  # 未初始化用户发送非登录包，直接关闭连接
+                all_dt = client_socket.recv(40960)
+                if all_dt:
+                    datum = Utils.RegexUtil.extract_data_from_braces(all_dt.decode())
+                    has_correct_login_packet = False
+                    for data in datum:
+                        # 解析登录包
+                        login_packet = Utils.Message.RequestMessage(data)
+                        if login_packet.type == RequestType.Login:
+                            has_correct_login_packet = True
+                            user_id = login_packet.from_id
+                            user_name = login_packet.name
+                            last_login = login_packet.timestamp
+                            if user_id:
+                                self.clients[user_id] = (user_name, fileno, client_socket)
+                                self.fno_uid[fileno] = user_id
+                                self.temp_clients.pop(fileno)  # 从临时存储中删除
+                                logger.info(f"User {user_id} - {user_name} connected with fileno {fileno}")
+                                client_socket.send(ResponseMessage.make_server_message(
+                                    f"Welcome to Betterfly, {user_name}!").to_json_str().encode())
+                                db.login(user_id, user_name, last_login)
+                                self.sync_message(user_id, last_login)
+                            else:
+                                logger.warning(f"Received empty user ID from fileno {fileno}")
+                                self.disconnect_queue.put((fileno, False))
+                    if not has_correct_login_packet:  # 未初始化用户发送非登录包，直接关闭连接
                         logger.warning(f"Received invalid request from fileno {fileno}")
                         self.disconnect_queue.put((fileno, False))
                 else:
@@ -329,9 +333,11 @@ class EpollChatServer:
                 timestamp=msg[2],
                 msg=msg[3],
                 msg_type=msg[4],
-                is_group=msg[5],
+                # 数据库里的is_group字段是个整数1或0，ResponseMessage里用isinstance(x, bool)判断会丢失这个字段
+                is_group=(msg[5] == 1)
             )
-            self.send_message(user_id, response)
+            # 开启同步转发时，关闭APN推送，同时传入标志方便正确发送全体消息
+            self.send_message(user_id, response, send_apn_push=False, sync_send_message=(True, user_id))
 
     def close_client(self, fileno, abnormal=False):
         user_id = self.fno_uid.get(fileno)
@@ -386,37 +392,50 @@ class EpollChatServer:
         except Exception as e:
             logger.error(f"Error during shutdown: {e}", exc_info=True)
 
-    def send_message(self, to_id: int, message: ResponseMessage | RequestMessage, is_group=False):
+    def send_message(self, to_id: int, message: ResponseMessage | RequestMessage,
+                     is_group=False, send_apn_push=True, sync_send_message=(False, 0)):
+        from_id = message.from_id  # 把from_id的获取提前，方便某人同步全体消息时转发使用
+
         to_list = list()
         if is_group:
-            if to_id == -1:
-                for uid, (uname, fno, sock) in self.clients.items():
-                    sock.send(message.to_json_str().encode())
-                return
+            if to_id == -1:  # 当转发全体消息时
+                if not sync_send_message[0]:  # 如果是首次发送，正常进行全员的转发
+                    for uid, (uname, fno, sock) in self.clients.items():
+                        sock.send(message.to_json_str().encode())
+                else:  # 如果是同步给某个人，则单独发送给ta
+                    recv_info = self.clients.get(sync_send_message[1])
+                    if recv_info is None:
+                        logger.warning(
+                            f'Failed to get clients for user: {sync_send_message[1]}    While sending message: {message.to_json_str()}')
+                        return  # 需要同步的对象不可达，可以退出了
+                    recv_sock = recv_info[2]
+                    recv_sock.send(message.to_json_str().encode())
+                return  # 全体消息转发完毕，可以退出了
             to_list.extend(db.queryGroupUser(to_id))
         else:
             to_list.append(to_id)
 
-        from_id = message.from_id
-        user_msg = ""
-        if message.msg_type == "file":
-            user_msg = "[文件]"
-        elif message.msg_type == "gif":
-            user_msg = "[表情符号]"
-        elif message.msg_type == "image":
-            user_msg = "[图片]"
-        else:
-            user_msg = message.msg
-
-        user_name = db.queryUser(from_id)
-
         for user_id in to_list:
             if user_id != from_id:
-                apn_list = db.queryUserAPNTokens(user_id)
-                for apn_token in apn_list:
-                    if apn_token[0] is not None:
-                        # (apn_token, user_name, user_msg, user_id)
-                        self.apn_send_queue.put((apn_token[0], user_name, user_msg, user_id))
+                if send_apn_push:  # 仅当需要启用APN推送时使用，消息同步的时候不进行这些操作
+                    user_name = db.queryUser(from_id)
+                    if message.msg_type == "file":
+                        user_msg = "[文件]"
+                    elif message.msg_type == "gif":
+                        user_msg = "[表情符号]"
+                    elif message.msg_type == "image":
+                        user_msg = "[图片]"
+                    else:
+                        if len(message.msg) > 15:
+                            user_msg = "您有一条新消息"
+                        else:
+                            user_msg = message.msg
+
+                    apn_list = db.queryUserAPNTokens(user_id)
+                    for apn_token in apn_list:
+                        if apn_token[0] is not None:
+                            # (apn_token, user_name, user_msg, user_id)
+                            self.apn_send_queue.put((apn_token[0], user_name, user_msg, user_id))
             recv_info = self.clients.get(user_id)
 
             if recv_info is None:
