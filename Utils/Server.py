@@ -235,6 +235,8 @@ class EpollChatServer:
                         self.process_file_operation(task)
                     elif task.type == RequestType.APNToken:
                         self.process_user_apn_token(task)
+                    elif task.type == RequestType.UpdateAvatar:  # 更新用户头像/群头像
+                        self.process_update_avatar(task)
 
             else:
                 # 客户端已断开连接
@@ -281,7 +283,7 @@ class EpollChatServer:
         user_id = task.from_id
         group_id = task.to_id
         group_name = task.msg
-        db.insertGroup(group_id, group_name)  # TODO: 数据库插入时的错误消息处理
+        db.insertGroup(group_id, group_name)
         db.insertGroupUser(group_id, user_id)
         response = ResponseMessage.make_hello_message(0, group_id, group_name, True)
         self.send_message(group_id, response, is_group=True)
@@ -321,6 +323,23 @@ class EpollChatServer:
         user_id = task.from_id
         user_apn_token = task.apn_token
         db.insertUserAPNToken(user_id, user_apn_token)  # 添加用户的APN Token用于后续发送通知
+
+    def process_update_avatar(self, task: Utils.Message.RequestMessage):
+        id = task.from_id
+        is_group = task.is_group
+        avatar = task.msg
+        if is_group:
+            db.updateGroupAvatar(id, avatar)
+            group = db.queryGroup(id)
+            # TODO: 更改queryGroup
+            response = ResponseMessage.make_group_info_message()
+            self.send_message(id, response, is_group=True)
+        else:
+            db.updateUserAvatar(id, avatar)
+            user = db.queryUser(id)
+            # TODO: 更改queryUser
+            response = ResponseMessage.make_user_info_message()
+            self.send_message(id, response)
 
     def sync_message(self, user_id: int, last_login: dt | str):
         """给客户端发送未登录期间收到的消息"""

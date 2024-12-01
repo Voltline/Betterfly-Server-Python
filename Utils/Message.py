@@ -18,6 +18,7 @@ class RequestType(IntEnum):
     InsertGroupUser = 8  # 向群组中添加用户
     File = 9  # 文件上传/下载请求
     APNToken = 10  # 用户APN Token
+    UpdateAvatar = 11  # 上传用户头像或群头像
 
 
 class ResponseType(IntEnum):

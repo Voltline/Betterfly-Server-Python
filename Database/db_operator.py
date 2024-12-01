@@ -183,5 +183,15 @@ class DBOperator:
         stmt = 'CALL delete_user_apn_token(%s, %s);'
         DBOperator.execute(stmt, False, from_user_id, user_apn_token)
 
+    @staticmethod
+    def updateUserAvatar(id: int, avatar: str):
+        stmt = 'CALL update_user_avatar(%s, %s);'
+        DBOperator.execute(stmt, False, id, avatar)
+
+    @staticmethod
+    def updateGroupAvatar(id: int, avatar: str):
+        stmt = 'CALL update_group_avatar(%s, %s);'
+        DBOperator.execute(stmt, False, id, avatar)
+
 
 db_operator = DBOperator()

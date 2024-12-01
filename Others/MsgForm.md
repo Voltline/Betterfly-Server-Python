@@ -108,6 +108,17 @@ enum RequestType
 }
 ```
 
+## RequestType.UpdateAvatar
+> 上传用户头像或群头像
+```json
+{
+    "type": RequestType.UpdateAvatar,
+    "from": id,
+    "msg": 头像的Base64编码,
+    "is_group": is_group (Bool),
+}
+```
+
 # ResponseMsg报文格式
 > ResponseType的定义，其中File，Pubkey暂不使用
 ```cpp
