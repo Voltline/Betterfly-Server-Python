@@ -177,5 +177,11 @@ class DBOperator:
         tokens = DBOperator.execute(stmt, True, from_user_id)
         return tokens
 
+    @staticmethod
+    def deleteUserAPNToken(from_user_id: int, user_apn_token: str):
+        """删除用户无效的APN Token"""
+        stmt = 'CALL delete_user_apn_token(%s, %s);'
+        DBOperator.execute(stmt, False, from_user_id, user_apn_token)
+
 
 db_operator = DBOperator()

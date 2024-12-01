@@ -46,7 +46,7 @@ class APNsClient:
         )
         return token
 
-    def send_notification(self, device_token: str, payload: dict) -> dict:
+    def send_notification(self, device_token: str, payload: dict) -> bool:
         """
         向指定设备发送推送通知。
 
@@ -64,13 +64,13 @@ class APNsClient:
             response = client.post(url, json=payload, headers=headers)
             response.raise_for_status()  # 如果状态码非200，抛出异常
             logger.info({"status": response.status_code, "data": response.json() if response.text else {}})
-            return {"status": response.status_code, "data": response.json() if response.text else {}}
+            return True
         except httpx.HTTPStatusError as e:
             logger.error({"status": e.response.status_code, "error": e.response.text})
-            return {"status": e.response.status_code, "error": e.response.text}
+            return False
         except Exception as e:
             logger.error({"status": "unknown_error", "error": str(e)})
-            return {"status": "unknown_error", "error": str(e)}
+            return False
 
 
 def make_notification_payload(user_name: str, msg: str) -> dict:

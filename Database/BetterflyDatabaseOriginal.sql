@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39-0ubuntu0.22.04.1)
  File Encoding         : 65001
 
- Date: 30/11/2024 22:41:14
+ Date: 01/12/2024 11:45:30
 */
 
 SET NAMES utf8mb4;
@@ -97,6 +97,27 @@ CREATE TABLE `users` (
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上次用户信息更新的时间',
   PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1506348631 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- ----------------------------
+-- Procedure structure for delete_user_apn_token
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `delete_user_apn_token`;
+delimiter ;;
+CREATE DEFINER=`voltline`@`%` PROCEDURE `delete_user_apn_token`(user_id int,  user_apn_token varchar(255))
+BEGIN
+  declare apn_token varchar(255) default '';
+	select user_apn_token into apn_token
+	from user_apn_tokens uat
+	where uat.user_id = user_id
+	and uat.user_apn_token = user_apn_token;
+	IF apn_token <> '' THEN
+		delete from user_apn_tokens uat
+		where uat.user_id = user_id
+		and uat.user_apn_token = user_apn_token;
+	END IF;
+END
+;;
+delimiter ;
 
 -- ----------------------------
 -- Procedure structure for init

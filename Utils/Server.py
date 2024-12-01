@@ -66,8 +66,15 @@ class EpollChatServer:
         self.initialize_thread = threading.Thread(target=self.initialize_worker)
         self.initialize_thread.start()
 
+        # apn_send_queue 是一个保存推送请求的队列，保证线程安全
+        self.apn_send_queue = Queue()
+
+        # apn_send_thread 专门处理向Apple APNs推送的任务
+        self.apn_send_thread = threading.Thread(target=self.apn_send_worker)
+        self.apn_send_thread.start()
+
         # apns 用于专门处理苹果设备的推送请求
-        self.apns = APNsClient()
+        self.apns = APNsClient(use_sandbox=False)
 
     def run(self):
         try:
@@ -113,6 +120,16 @@ class EpollChatServer:
             if fileno is None:
                 break
             self.initialize_client(fileno)
+
+    def apn_send_worker(self):
+        # 需要的消息：(apn_token, user_name, user_msg, user_id)
+        while True:
+            apn_token, user_name, user_msg, user_id = self.apn_send_queue.get()
+            if apn_token is None:
+                break
+            result = self.apns.send_notification(apn_token, make_notification_payload(user_name, user_msg))
+            if not result:  # 发送异常，删除APN Token
+                db.deleteUserAPNToken(user_id, apn_token)
 
     def accept_client(self):
         try:
@@ -361,8 +378,10 @@ class EpollChatServer:
             # 关闭 epoll 对象
             self.disconnect_queue.put((None, None))
             self.initialize_queue.put(None)
+            self.apn_send_queue.put((None, None, None, None))
             self.disconnect_thread.join()
             self.initialize_thread.join()
+            self.apn_send_thread.join()
             self.epoll.close()
         except Exception as e:
             logger.error(f"Error during shutdown: {e}", exc_info=True)
@@ -396,7 +415,8 @@ class EpollChatServer:
                 apn_list = db.queryUserAPNTokens(user_id)
                 for apn_token in apn_list:
                     if apn_token[0] is not None:
-                        self.apns.send_notification(apn_token[0], make_notification_payload(user_name, user_msg))
+                        # (apn_token, user_name, user_msg, user_id)
+                        self.apn_send_queue.put((apn_token[0], user_name, user_msg, user_id))
             recv_info = self.clients.get(user_id)
 
             if recv_info is None:
