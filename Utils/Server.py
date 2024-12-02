@@ -66,12 +66,12 @@ class EpollChatServer:
         self.initialize_thread = threading.Thread(target=self.initialize_worker)
         self.initialize_thread.start()
 
-        # apn_send_queue 是一个保存推送请求的队列，保证线程安全
-        self.apn_send_queue = Queue()
+        # apns_send_queue 是一个保存推送请求的队列，保证线程安全
+        self.apns_send_queue = Queue()
 
-        # apn_send_thread 专门处理向Apple APNs推送的任务
-        self.apn_send_thread = threading.Thread(target=self.apn_send_worker)
-        self.apn_send_thread.start()
+        # apns_send_thread 专门处理向Apple APNs推送的任务
+        self.apns_send_thread = threading.Thread(target=self.apns_send_worker)
+        self.apns_send_thread.start()
 
         # apns 用于专门处理苹果设备的推送请求
         self.apns = APNsClient(use_sandbox=False)
@@ -121,15 +121,15 @@ class EpollChatServer:
                 break
             self.initialize_client(fileno)
 
-    def apn_send_worker(self):
+    def apns_send_worker(self):
         # 需要的消息：(apn_token, user_name, user_msg, user_id)
         while True:
-            apn_token, user_name, user_msg, user_id = self.apn_send_queue.get()
-            if apn_token is None:
+            apns_token, user_name, user_msg, user_id = self.apns_send_queue.get()
+            if apns_token is None:
                 break
-            result = self.apns.send_notification(apn_token, make_notification_payload(user_name, user_msg))
-            if not result:  # 发送异常，删除APN Token
-                db.deleteUserAPNToken(user_id, apn_token)
+            result = self.apns.send_notification(apns_token, make_notification_payload(user_name, user_msg))
+            if not result:  # 发送异常，删除APNs Token
+                db.deleteUserAPNsToken(user_id, apns_token)
 
     def accept_client(self):
         try:
@@ -216,11 +216,11 @@ class EpollChatServer:
                                          task.is_group)
 
                         if is_group:
-                            self.send_message(to_id, task, is_group=True)
+                            self.send_message(to_id, task, is_group=True, send_apns_push=True)
                         else:
                             self.send_message(user_id, task)  # 重授时后直接回显消息
                             if to_id != user_id:
-                                self.send_message(to_id, task)
+                                self.send_message(to_id, task, send_apns_push=True)
                     elif task.type == RequestType.QueryUser:  # 从数据库请求用户信息
                         self.process_query_user(user_id, task)
                     elif task.type == RequestType.InsertContact:  # 增加联系人
@@ -233,8 +233,8 @@ class EpollChatServer:
                         self.process_insert_group_user(task)
                     elif task.type == RequestType.File:
                         self.process_file_operation(task)
-                    elif task.type == RequestType.APNToken:
-                        self.process_user_apn_token(task)
+                    elif task.type == RequestType.APNsToken:
+                        self.process_user_apns_token(task)
                     elif task.type == RequestType.UpdateAvatar:  # 更新用户头像/群头像
                         self.process_update_avatar(task)
 
@@ -319,10 +319,10 @@ class EpollChatServer:
             response = ResponseMessage.make_download_message(file_name, content)
         self.send_message(user_id, response)
 
-    def process_user_apn_token(self, task: Utils.Message.RequestMessage):
+    def process_user_apns_token(self, task: Utils.Message.RequestMessage):
         user_id = task.from_id
-        user_apn_token = task.apn_token
-        db.insertUserAPNToken(user_id, user_apn_token)  # 添加用户的APN Token用于后续发送通知
+        user_apns_token = task.apns_token
+        db.insertUserAPNsToken(user_id, user_apns_token)  # 添加用户的APNs Token用于后续发送通知
 
     def process_update_avatar(self, task: Utils.Message.RequestMessage):
         id = task.from_id
@@ -355,8 +355,8 @@ class EpollChatServer:
                 # 数据库里的is_group字段是个整数1或0，ResponseMessage里用isinstance(x, bool)判断会丢失这个字段
                 is_group=(msg[5] == 1)
             )
-            # 开启同步转发时，关闭APN推送，同时传入标志方便正确发送全体消息
-            self.send_message(user_id, response, send_apn_push=False, sync_send_message=(True, user_id))
+            # 开启同步转发时，关闭APNs推送
+            self.send_message(user_id, response)
 
     def close_client(self, fileno, abnormal=False):
         user_id = self.fno_uid.get(fileno)
@@ -403,32 +403,24 @@ class EpollChatServer:
             # 关闭 epoll 对象
             self.disconnect_queue.put((None, None))
             self.initialize_queue.put(None)
-            self.apn_send_queue.put((None, None, None, None))
+            self.apns_send_queue.put((None, None, None, None))
             self.disconnect_thread.join()
             self.initialize_thread.join()
-            self.apn_send_thread.join()
+            self.apns_send_thread.join()
             self.epoll.close()
         except Exception as e:
             logger.error(f"Error during shutdown: {e}", exc_info=True)
 
     def send_message(self, to_id: int, message: ResponseMessage | RequestMessage,
-                     is_group=False, send_apn_push=True, sync_send_message=(False, 0)):
+                     is_group=False, send_apns_push=False):
+        # APNs 推送请求默认不发送
         from_id = message.from_id  # 把from_id的获取提前，方便某人同步全体消息时转发使用
 
         to_list = list()
         if is_group:
             if to_id == -1:  # 当转发全体消息时
-                if not sync_send_message[0]:  # 如果是首次发送，正常进行全员的转发
-                    for uid, (uname, fno, sock) in self.clients.items():
-                        sock.send(message.to_json_str().encode())
-                else:  # 如果是同步给某个人，则单独发送给ta
-                    recv_info = self.clients.get(sync_send_message[1])
-                    if recv_info is None:
-                        logger.warning(
-                            f'Failed to get clients for user: {sync_send_message[1]}    While sending message: {message.to_json_str()}')
-                        return  # 需要同步的对象不可达，可以退出了
-                    recv_sock = recv_info[2]
-                    recv_sock.send(message.to_json_str().encode())
+                for uid, (uname, fno, sock) in self.clients.items():
+                    sock.send(message.to_json_str().encode())
                 return  # 全体消息转发完毕，可以退出了
             to_list.extend(db.queryGroupUser(to_id))
         else:
@@ -436,25 +428,25 @@ class EpollChatServer:
 
         for user_id in to_list:
             if user_id != from_id:
-                if send_apn_push:  # 仅当需要启用APN推送时使用，消息同步的时候不进行这些操作
+                if send_apns_push:  # 仅当需要启用APNs推送时使用，消息同步的时候不进行这些操作
                     user_name = db.queryUser(from_id)
-                    if message.msg_type == "file":
+                    if message.msg_type == "file":  # 用于获取推送需要的body内容
                         user_msg = "[文件]"
                     elif message.msg_type == "gif":
                         user_msg = "[表情符号]"
                     elif message.msg_type == "image":
                         user_msg = "[图片]"
                     else:
-                        if len(message.msg) > 15:
+                        if len(message.msg) > 30:  # 文本过长只显示您有一条新消息
                             user_msg = "您有一条新消息"
-                        else:
+                        else:  # 否则显示文本内容
                             user_msg = message.msg
 
-                    apn_list = db.queryUserAPNTokens(user_id)
-                    for apn_token in apn_list:
-                        if apn_token[0] is not None:
-                            # (apn_token, user_name, user_msg, user_id)
-                            self.apn_send_queue.put((apn_token[0], user_name, user_msg, user_id))
+                    apns_list = db.queryUserAPNsTokens(user_id)  # 查询出用户所有的APNs Token
+                    for apns_token in apns_list:  # 开始尝试向对应用户所有APNs Token发送
+                        if apns_token[0] is not None:
+                            # (apns_token, user_name, user_msg, user_id)
+                            self.apns_send_queue.put((apns_token[0], user_name, user_msg, user_id))
             recv_info = self.clients.get(user_id)
 
             if recv_info is None:

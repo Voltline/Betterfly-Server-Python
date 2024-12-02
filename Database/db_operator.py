@@ -165,23 +165,23 @@ class DBOperator:
         return (user_id for user_id_tuple in user_ids for user_id in user_id_tuple)
 
     @staticmethod
-    def insertUserAPNToken(from_user_id: int, user_apn_token: str):
-        """保存用户的APN Token"""
-        stmt = 'CALL insert_user_apn_token(%s, %s);'
-        DBOperator.execute(stmt, False, from_user_id, user_apn_token)
+    def insertUserAPNsToken(from_user_id: int, user_apns_token: str):
+        """保存用户的APNs Token"""
+        stmt = 'CALL insert_user_apns_token(%s, %s);'
+        DBOperator.execute(stmt, False, from_user_id, user_apns_token)
 
     @staticmethod
-    def queryUserAPNTokens(from_user_id: int):
-        """查询用户的所有APN Token"""
-        stmt = 'CALL query_user_apn_tokens(%s);'
+    def queryUserAPNsTokens(from_user_id: int):
+        """查询用户的所有APNs Token"""
+        stmt = 'CALL query_user_apns_tokens(%s);'
         tokens = DBOperator.execute(stmt, True, from_user_id)
         return tokens
 
     @staticmethod
-    def deleteUserAPNToken(from_user_id: int, user_apn_token: str):
-        """删除用户无效的APN Token"""
-        stmt = 'CALL delete_user_apn_token(%s, %s);'
-        DBOperator.execute(stmt, False, from_user_id, user_apn_token)
+    def deleteUserAPNsToken(from_user_id: int, user_apns_token: str):
+        """删除用户无效的APNs Token"""
+        stmt = 'CALL delete_user_apns_token(%s, %s);'
+        DBOperator.execute(stmt, False, from_user_id, user_apns_token)
 
     @staticmethod
     def updateUserAvatar(id: int, avatar: str):

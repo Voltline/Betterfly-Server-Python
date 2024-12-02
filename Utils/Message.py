@@ -17,7 +17,7 @@ class RequestType(IntEnum):
     InsertGroup = 7  # 添加群组
     InsertGroupUser = 8  # 向群组中添加用户
     File = 9  # 文件上传/下载请求
-    APNToken = 10  # 用户APN Token
+    APNsToken = 10  # 用户APNs Token
     UpdateAvatar = 11  # 上传用户头像或群头像
 
 
@@ -58,8 +58,8 @@ class RequestMessage:
             self.file_suffix = self.packet_json["file_suffix"]
             self.file_operation = self.packet_json["operation"]
 
-        elif self.type == RequestType.APNToken:
-            self.apn_token = self.packet_json["apn_token"]
+        elif self.type == RequestType.APNsToken:
+            self.apns_token = self.packet_json["apns_token"]
 
     def to_json_str(self):
         return json.dumps(self.packet_json)

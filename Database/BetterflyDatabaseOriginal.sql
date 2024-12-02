@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39-0ubuntu0.22.04.1)
  File Encoding         : 65001
 
- Date: 01/12/2024 11:45:30
+ Date: 02/12/2024 12:53:48
 */
 
 SET NAMES utf8mb4;
@@ -58,6 +58,7 @@ CREATE TABLE `groups` (
   `group_id` int NOT NULL COMMENT '群组id',
   `group_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '群组名称',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上次信息更新的时间(群组本身的信息或群组成员的信息)',
+  `group_avatar` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '群头像',
   PRIMARY KEY (`group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -75,13 +76,13 @@ CREATE TABLE `messages` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
--- Table structure for user_apn_tokens
+-- Table structure for user_apns_tokens
 -- ----------------------------
-DROP TABLE IF EXISTS `user_apn_tokens`;
-CREATE TABLE `user_apn_tokens` (
+DROP TABLE IF EXISTS `user_apns_tokens`;
+CREATE TABLE `user_apns_tokens` (
   `user_id` int NOT NULL COMMENT '用户ID',
-  `user_apn_token` varchar(255) NOT NULL COMMENT '苹果设备的APN Token',
-  PRIMARY KEY (`user_id`,`user_apn_token`)
+  `user_apns_token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '苹果设备的APN Token',
+  PRIMARY KEY (`user_id`,`user_apns_token`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
@@ -95,25 +96,26 @@ CREATE TABLE `users` (
   `auth_string` varchar(255) DEFAULT NULL COMMENT '认证字符串',
   `last_login` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上次下线的时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上次用户信息更新的时间',
+  `user_avatar` text NOT NULL COMMENT '用户头像',
   PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1506348631 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
--- Procedure structure for delete_user_apn_token
+-- Procedure structure for delete_user_apns_token
 -- ----------------------------
-DROP PROCEDURE IF EXISTS `delete_user_apn_token`;
+DROP PROCEDURE IF EXISTS `delete_user_apns_token`;
 delimiter ;;
-CREATE DEFINER=`voltline`@`%` PROCEDURE `delete_user_apn_token`(user_id int,  user_apn_token varchar(255))
+CREATE DEFINER=`voltline`@`%` PROCEDURE `delete_user_apns_token`(user_id int,  user_apns_token varchar(255))
 BEGIN
-  declare apn_token varchar(255) default '';
-	select user_apn_token into apn_token
-	from user_apn_tokens uat
+  declare apns_token varchar(255) default '';
+	select user_apns_token into apns_token
+	from user_apns_tokens uat
 	where uat.user_id = user_id
-	and uat.user_apn_token = user_apn_token;
-	IF apn_token <> '' THEN
-		delete from user_apn_tokens uat
+	and uat.user_apns_token = user_apns_token;
+	IF apns_token <> '' THEN
+		delete from user_apns_tokens uat
 		where uat.user_id = user_id
-		and uat.user_apn_token = user_apn_token;
+		and uat.user_apns_token = user_apns_token;
 	END IF;
 END
 ;;
@@ -236,19 +238,19 @@ END
 delimiter ;
 
 -- ----------------------------
--- Procedure structure for insert_user_apn_token
+-- Procedure structure for insert_user_apns_token
 -- ----------------------------
-DROP PROCEDURE IF EXISTS `insert_user_apn_token`;
+DROP PROCEDURE IF EXISTS `insert_user_apns_token`;
 delimiter ;;
-CREATE DEFINER=`voltline`@`%` PROCEDURE `insert_user_apn_token`(user_id int,  user_apn_token varchar(255))
+CREATE DEFINER=`voltline`@`%` PROCEDURE `insert_user_apns_token`(user_id int,  user_apns_token varchar(255))
 BEGIN
-	declare apn_token varchar(255) default '';
-	select user_apn_token into apn_token
-	from user_apn_tokens uat
+	declare apns_token varchar(255) default '';
+	select user_apns_token into apns_token
+	from user_apns_tokens uat
 	where user_id = uat.user_id
-	and user_apn_token = uat.user_apn_token;
-	IF apn_token = '' THEN
-  insert into user_apn_tokens values(user_id, user_apn_token);
+	and user_apns_token = uat.user_apns_token;
+	IF apns_token = '' THEN
+  insert into user_apns_tokens values(user_id, user_apns_token);
 	END IF;
 END
 ;;
@@ -308,7 +310,7 @@ DROP PROCEDURE IF EXISTS `query_group`;
 delimiter ;;
 CREATE DEFINER=`lty`@`%` PROCEDURE `query_group`(IN _group_id INT)
 BEGIN
-	SELECT group_name
+	SELECT group_name, group_avatar
 	FROM `groups`
 	WHERE group_id = _group_id;
 END
@@ -364,7 +366,7 @@ DROP PROCEDURE IF EXISTS `query_user`;
 delimiter ;;
 CREATE DEFINER=`lty`@`%` PROCEDURE `query_user`(IN _user_id INT)
 BEGIN
-	SELECT user_name
+	SELECT user_name, user_avatar
 	FROM users
 	WHERE user_id = _user_id;
 END
@@ -372,15 +374,43 @@ END
 delimiter ;
 
 -- ----------------------------
--- Procedure structure for query_user_apn_tokens
+-- Procedure structure for query_user_apns_tokens
 -- ----------------------------
-DROP PROCEDURE IF EXISTS `query_user_apn_tokens`;
+DROP PROCEDURE IF EXISTS `query_user_apns_tokens`;
 delimiter ;;
-CREATE DEFINER=`voltline`@`%` PROCEDURE `query_user_apn_tokens`(user_id int)
+CREATE DEFINER=`voltline`@`%` PROCEDURE `query_user_apns_tokens`(user_id int)
 BEGIN
-  select user_apn_token
-	from user_apn_tokens apn
+  select user_apns_token
+	from user_apns_tokens apn
 	where user_id = apn.user_id;
+END
+;;
+delimiter ;
+
+-- ----------------------------
+-- Procedure structure for update_group_avatar
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `update_group_avatar`;
+delimiter ;;
+CREATE DEFINER=`lty`@`%` PROCEDURE `update_group_avatar`(IN _id INT, IN _avatar TEXT)
+BEGIN
+	UPDATE `groups`
+	SET group_avatar = _avatar
+	WHERE group_id = _id;
+END
+;;
+delimiter ;
+
+-- ----------------------------
+-- Procedure structure for update_user_avatar
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `update_user_avatar`;
+delimiter ;;
+CREATE DEFINER=`lty`@`%` PROCEDURE `update_user_avatar`(IN _id INT, IN _avatar TEXT)
+BEGIN
+	UPDATE users
+	SET user_avatar = _avatar
+	WHERE user_id = _id;
 END
 ;;
 delimiter ;
