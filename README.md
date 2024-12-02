@@ -50,6 +50,8 @@
 * Why not try to use existed protocol?
 > The initial vision for building QuickIM was to create communication software capable of enabling client-to-client communication based on the knowledge framework learned in computer networking and operating systems courses. Therefore, existing protocols were not taken into consideration.
 
+### 技术路线/Technology Roadmap
+
 * 为什么使用Python，而非Java/Golang等更加适合高并发场景的语言？
 > 最初的QuickIM基于C++构建，在24年10月开始将其改造为客户端服务的后端后，C++以及一些第三方库带来的问题已经难以解决，在此基础上，为了更快地完成服务器建设，我们决定使用更加简单的Python来解决问题
 
