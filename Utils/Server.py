@@ -13,9 +13,10 @@ import Utils.config
 import Utils.RegexUtil
 from Utils.apns import APNsClient, make_notification_payload
 from Utils.Message import ResponseMessage, ResponseType, RequestMessage, RequestType, df
-from Database.db_operator import db_operator as db
-from Utils.cos import cos_operator as cos
 from Utils.color_logger import get_logger
+from Utils.Encrypto import MessageDealer
+from Utils.cos import cos_operator as cos
+from Database.db_operator import db_operator as db
 
 logger = get_logger(__name__)
 
@@ -150,7 +151,7 @@ class EpollChatServer:
             if client_socket is not None:
                 all_dt = client_socket.recv(40960)
                 if all_dt:
-                    datum = Utils.RegexUtil.extract_data_from_braces(all_dt.decode())
+                    datum = MessageDealer.decode(all_dt)
                     has_correct_login_packet = False
                     for data in datum:
                         # 解析登录包
@@ -166,7 +167,7 @@ class EpollChatServer:
                                 self.temp_clients.pop(fileno)  # 从临时存储中删除
                                 logger.info(f"User {user_id} - {user_name} connected with fileno {fileno}")
                                 client_socket.send(ResponseMessage.make_server_message(
-                                    f"Welcome to Betterfly, {user_name}!").to_json_str().encode())
+                                    f"Welcome to Betterfly, {user_name}!").to_json_encoded_bytes())
                                 db.login(user_id, user_name, last_login)
                                 self.sync_message(user_id, last_login)
                             else:
@@ -199,10 +200,10 @@ class EpollChatServer:
 
         try:
             all_dt = client_socket.recv(40960)
-            logger.info(f"Received data from user {user_id}: {all_dt.decode()}")
             if all_dt:
-                datum = Utils.RegexUtil.extract_data_from_braces(all_dt.decode())  # TODO: 目前还是只有正则匹配
+                datum = MessageDealer.decode(all_dt)
                 for data in datum:
+                    logger.info(f"Received data from user {user_id}: {data}")
                     task = Utils.Message.RequestMessage(data)
                     if task.type == RequestType.Exit:  # 执行退出操作
                         self.disconnect_queue.put((fileno, False))
@@ -366,7 +367,7 @@ class EpollChatServer:
                 client_socket = self.clients[user_id][2]
                 logger.info(f"Connection closed from user {user_id}")
                 if not abnormal:
-                    client_socket.send(ResponseMessage.make_server_message("Goodbye!").to_json_str().encode())
+                    client_socket.send(ResponseMessage.make_server_message("Goodbye!").to_json_encoded_bytes())
                     self.epoll.unregister(fileno)
                 client_socket.close()
                 self.clients.pop(user_id)
@@ -420,7 +421,7 @@ class EpollChatServer:
         if is_group:
             if to_id == -1:  # 当转发全体消息时
                 for uid, (uname, fno, sock) in self.clients.items():
-                    sock.send(message.to_json_str().encode())
+                    sock.send(message.to_json_encoded_bytes())
                 return  # 全体消息转发完毕，可以退出了
             to_list.extend(db.queryGroupUser(to_id))
         else:
@@ -454,7 +455,7 @@ class EpollChatServer:
                     f'Failed to get clients for user: {user_id}    While sending message: {message.to_json_str()}')
                 continue
             recv_sock = recv_info[2]
-            recv_sock.send(message.to_json_str().encode())
+            recv_sock.send(message.to_json_encoded_bytes())
 
             logger.info(f'Sent message to user {user_id}: {message.to_json_str()}')
 

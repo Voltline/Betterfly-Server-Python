@@ -2,6 +2,7 @@ import json
 from enum import IntEnum
 from datetime import datetime as dt
 from Database.db_operator import db_operator as db
+from Utils.Encrypto import MessageDealer
 
 df = "%Y-%m-%d %H:%M:%S"
 
@@ -63,6 +64,9 @@ class RequestMessage:
 
     def to_json_str(self):
         return json.dumps(self.packet_json)
+
+    def to_json_encoded_bytes(self) -> bytes:
+        return MessageDealer.encode(self.to_json_str())
 
 
 class ResponseMessage:
@@ -140,6 +144,9 @@ class ResponseMessage:
             info['file_op'] = self.file_op
 
         return json.dumps(info)
+
+    def to_json_encoded_bytes(self) -> bytes:
+        return MessageDealer.encode(self.to_json_str())
 
 
 def datetime_str(t: dt = None) -> str:

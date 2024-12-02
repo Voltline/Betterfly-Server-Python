@@ -1,2 +1,4 @@
 cos-python-sdk-v5
 pymysql
+httpx[http2]
+pycryptodome
