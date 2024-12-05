@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39-0ubuntu0.22.04.1)
  File Encoding         : 65001
 
- Date: 02/12/2024 12:53:48
+ Date: 05/12/2024 16:00:26
 */
 
 SET NAMES utf8mb4;
@@ -70,9 +70,10 @@ CREATE TABLE `messages` (
   `from_user_id` int NOT NULL COMMENT '发消息的用户id',
   `to_id` int NOT NULL COMMENT '收消息的id，根据is_group决定是用户还是群组',
   `timestamp` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '消息到达服务器的时间',
-  `text` varchar(1024) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '消息内容',
+  `text` varchar(700) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '消息内容',
   `type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'text' COMMENT '消息类型(text, image, gif, file)',
-  `is_group` int NOT NULL DEFAULT '0' COMMENT 'to_id是群组还是用户'
+  `is_group` int NOT NULL DEFAULT '0' COMMENT 'to_id是群组还是用户',
+  PRIMARY KEY (`from_user_id`,`to_id`,`timestamp`,`text`,`type`,`is_group`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
@@ -214,10 +215,10 @@ CREATE DEFINER=`lty`@`%` PROCEDURE `insert_message`(
 )
 BEGIN
 	IF _timestamp IS NULL THEN
-		INSERT INTO messages(from_user_id, to_id, `text`, type, is_group)
+		INSERT IGNORE INTO messages(from_user_id, to_id, `text`, type, is_group)
 		VALUES(_from, _to, _text, _type, _is_group);
 	ELSE
-		INSERT INTO messages(from_user_id, to_id, `text`, type, is_group, `timestamp`)
+		INSERT IGNORE INTO messages(from_user_id, to_id, `text`, type, is_group, `timestamp`)
 		VALUES(_from, _to, _text, _type, _is_group, _timestamp);
 	END IF;
 END
