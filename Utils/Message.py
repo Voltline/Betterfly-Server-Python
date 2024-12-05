@@ -42,10 +42,10 @@ class RequestMessage:
         self.timestamp: dt = dt.strptime(self.packet_json["timestamp"], df) if self.packet_json.get(
             "timestamp") else dt.now()
         self.msg: str = self.packet_json["msg"] if 'msg' in self.packet_json else ''
+        self.is_group = self.packet_json["is_group"] if 'is_group' in self.packet_json else False
 
         if self.type == RequestType.Post:
             self.name = self.packet_json["name"]
-            self.is_group = self.packet_json["is_group"]
             self.msg_type = self.packet_json["msg_type"]
             self.name = ""
 
@@ -105,13 +105,13 @@ class ResponseMessage:
         return ResponseMessage(ResponseType.Server, -1, msg, "")
 
     @staticmethod
-    def make_user_info_message(user_id: int, user_name: str):
-        return ResponseMessage(ResponseType.UserInfo, 0, user_name, "", user_id)
+    def make_user_info_message(user_id: int, user_info: str):
+        return ResponseMessage(ResponseType.UserInfo, 0, user_info, "", user_id)
 
     @staticmethod
-    def make_group_info_message(group_id: int, group_name: str, during_add: bool = False):
+    def make_group_info_message(group_id: int, group_info: str, during_add: bool = False):
         from_id = -1 if during_add else 0
-        return ResponseMessage(ResponseType.GroupInfo, from_id, group_name, "", group_id)
+        return ResponseMessage(ResponseType.GroupInfo, from_id, group_info, "", group_id)
 
     @staticmethod
     def make_hello_message(from_user_id: int, to_id: int, from_user_name: str = '',

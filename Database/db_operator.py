@@ -46,7 +46,7 @@ class DBOperator:
         if self.__db:
             self.__db.close()
 
-    def execute(self, sql_stmt: str, all: bool = True, *args):
+    def execute(self, sql_stmt: str, all: bool = True, *args) -> tuple:
         """
         执行SQL语句
         :param sql_stmt: 待执行SQL语句
@@ -90,11 +90,15 @@ class DBOperator:
     def queryUser(self, user_id: int) -> str:
         """
         通过user_id查询user信息
-        :return: 用户昵称，如果用户不存在则返回空字符串
+        :return: 用户昵称.用户头像
         """
         stmt = 'CALL query_user(%s);'
-        user_name = self.execute(stmt, False, user_id)[0]
-        return '' if user_name is None else user_name
+        user = self.execute(stmt, False, user_id)
+        if user[0] is None:
+            return '.'
+        user_name = '' if user[0] is None else user[0]
+        user_avatar = '' if user[1] is None else user[1]
+        return user_name + '.' + user_avatar
 
     def insertContact(self, user_id1: int, user_id2: int):
         """
@@ -106,11 +110,15 @@ class DBOperator:
     def queryGroup(self, group_id: int) -> str:
         """
         通过group_id请求group信息
-        :return: 群组名称，如果群组不存在则返回空字符串
+        :return: 群组名称.群头像
         """
         stmt = 'CALL query_group(%s);'
-        group_name = self.execute(stmt, False, group_id)[0]
-        return '' if group_name is None else group_name
+        group = self.execute(stmt, False, group_id)
+        if group[0] is None:
+            return '.'
+        group_name = '' if group[0] is None else group[0]
+        group_avatar = '' if group[1] is None else group[1]
+        return group_name + '.' + group_avatar
 
     def insertGroup(self, group_id: int, group_name: str):
         """插入一个新group"""

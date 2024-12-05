@@ -341,15 +341,13 @@ class EpollChatServer:
         db = DBOperator()
         if is_group:
             db.updateGroupAvatar(id, avatar)
-            group = db.queryGroup(id)
-            # TODO: 更改queryGroup
-            response = ResponseMessage.make_group_info_message()
+            group_info = db.queryGroup(id)
+            response = ResponseMessage.make_group_info_message(id, group_info)
             self.send_message(id, response, is_group=True)
         else:
             db.updateUserAvatar(id, avatar)
-            user = db.queryUser(id)
-            # TODO: 更改queryUser
-            response = ResponseMessage.make_user_info_message()
+            user_info = db.queryUser(id)
+            response = ResponseMessage.make_user_info_message(id, user_info)
             self.send_message(id, response)
 
     def sync_message(self, user_id: int, last_login: dt | str):
