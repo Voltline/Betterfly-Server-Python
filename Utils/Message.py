@@ -1,7 +1,7 @@
 import json
 from enum import IntEnum
 from datetime import datetime as dt
-from Database.db_operator import db_operator as db
+from Database.db_operator import DBOperator
 from Utils.Encrypto import MessageDealer
 
 df = "%Y-%m-%d %H:%M:%S"
@@ -119,6 +119,7 @@ class ResponseMessage:
         """此消息会在创建时录入数据库"""
         response = ResponseMessage(ResponseType.Post, from_user_id, msg, from_user_name, to_id, is_group,
                                    timestamp=dt.now(), msg_type="text")
+        db = DBOperator()
         db.insertMessage(response.from_id, response.to_id, response.timestamp, response.msg, "text", response.is_group)
         return response
 

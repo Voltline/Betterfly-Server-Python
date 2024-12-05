@@ -16,7 +16,7 @@ from Utils.Message import ResponseMessage, ResponseType, RequestMessage, Request
 from Utils.color_logger import get_logger
 from Utils.Encrypto import MessageDealer
 from Utils.cos import cos_operator as cos
-from Database.db_operator import db_operator as db
+from Database.db_operator import DBOperator
 
 logger = get_logger(__name__)
 
@@ -79,7 +79,6 @@ class EpollChatServer:
 
     def run(self):
         try:
-            db.connect()
             logger.info('Server started successfully')
             while True:
                 try:
@@ -130,6 +129,7 @@ class EpollChatServer:
                 break
             result = self.apns.send_notification(apns_token, make_notification_payload(user_name, user_msg))
             if not result:  # 发送异常，删除APNs Token
+                db = DBOperator()
                 db.deleteUserAPNsToken(user_id, apns_token)
 
     def accept_client(self):
@@ -168,6 +168,7 @@ class EpollChatServer:
                                 logger.info(f"User {user_id} - {user_name} connected with fileno {fileno}")
                                 client_socket.send(ResponseMessage.make_server_message(
                                     f"Welcome to Betterfly, {user_name}!").to_json_encoded_bytes())
+                                db = DBOperator()
                                 db.login(user_id, user_name, last_login)
                                 self.sync_message(user_id, last_login)
                             else:
@@ -213,6 +214,7 @@ class EpollChatServer:
                         task.timestamp = now
                         to_id = task.to_id
                         is_group = task.is_group
+                        db = DBOperator()
                         db.insertMessage(task.from_id, task.to_id, task.timestamp, task.msg, task.msg_type,
                                          task.is_group)
 
@@ -256,6 +258,7 @@ class EpollChatServer:
         :param task: 请求内容
         """
         query_user_id = task.to_id
+        db = DBOperator()
         query_user_name = db.queryUser(query_user_id)
         response = ResponseMessage.make_user_info_message(query_user_id, query_user_name)
         self.send_message(user_id, response)
@@ -266,6 +269,7 @@ class EpollChatServer:
         if o_user_id is None or user_id is None:
             logger.warning(f'In insert contact: user_id or o_user_id is None for task {task.to_json_str()}')
             return
+        db = DBOperator()
         db.insertContact(user_id, o_user_id)
 
         response = ResponseMessage.make_hello_message(user_id, o_user_id, db.queryUser(user_id))
@@ -276,6 +280,7 @@ class EpollChatServer:
         user_id = task.from_id
         query_group_id = task.to_id
         during_add = task.msg != ''  # 是否是加群/建群之前的检查性查询
+        db = DBOperator()
         query_group_name = db.queryGroup(query_group_id)
         response = ResponseMessage.make_group_info_message(query_group_id, query_group_name, during_add)
         self.send_message(user_id, response)
@@ -284,6 +289,7 @@ class EpollChatServer:
         user_id = task.from_id
         group_id = task.to_id
         group_name = task.msg
+        db = DBOperator()
         db.insertGroup(group_id, group_name)
         db.insertGroupUser(group_id, user_id)
         response = ResponseMessage.make_hello_message(0, group_id, group_name, True)
@@ -292,6 +298,7 @@ class EpollChatServer:
     def process_insert_group_user(self, task: Utils.Message.RequestMessage):
         user_id = task.from_id
         group_id = task.to_id
+        db = DBOperator()
         db.insertGroupUser(group_id, user_id)
         response = ResponseMessage.make_hello_message(user_id, group_id, '', True, "Hi")
         self.send_message(group_id, response, True)
@@ -301,6 +308,7 @@ class EpollChatServer:
         file_hash = task.file_hash
         file_suffix = task.file_suffix
         operation = task.file_operation
+        db = DBOperator()
         file_exist = db.queryFile(file_hash, file_suffix)
         file_name = file_hash + "." + file_suffix
         content = ""
@@ -323,12 +331,14 @@ class EpollChatServer:
     def process_user_apns_token(self, task: Utils.Message.RequestMessage):
         user_id = task.from_id
         user_apns_token = task.apns_token
+        db = DBOperator()
         db.insertUserAPNsToken(user_id, user_apns_token)  # 添加用户的APNs Token用于后续发送通知
 
     def process_update_avatar(self, task: Utils.Message.RequestMessage):
         id = task.from_id
         is_group = task.is_group
         avatar = task.msg
+        db = DBOperator()
         if is_group:
             db.updateGroupAvatar(id, avatar)
             group = db.queryGroup(id)
@@ -344,6 +354,7 @@ class EpollChatServer:
 
     def sync_message(self, user_id: int, last_login: dt | str):
         """给客户端发送未登录期间收到的消息"""
+        db = DBOperator()
         msg_list = db.querySyncMessage(user_id, last_login)
         for msg in msg_list:
             response = ResponseMessage(
@@ -416,7 +427,7 @@ class EpollChatServer:
                      is_group=False, send_apns_push=False):
         # APNs 推送请求默认不发送
         from_id = message.from_id  # 把from_id的获取提前，方便某人同步全体消息时转发使用
-
+        db = DBOperator()
         to_list = list()
         if is_group:
             if to_id == -1:  # 当转发全体消息时
