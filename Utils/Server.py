@@ -439,7 +439,7 @@ class EpollChatServer:
         for user_id in to_list:
             if user_id != from_id:
                 if send_apns_push:  # 仅当需要启用APNs推送时使用，消息同步的时候不进行这些操作
-                    user_name = db.queryUser(from_id)
+                    user_name = db.queryUserName(from_id)
                     if message.msg_type == "file":  # 用于获取推送需要的body内容
                         user_msg = "[文件]"
                     elif message.msg_type == "gif":

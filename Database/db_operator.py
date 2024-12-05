@@ -100,6 +100,15 @@ class DBOperator:
         user_avatar = '' if user[1] is None else user[1]
         return user_name + '.' + user_avatar
 
+    def queryUserName(self, user_id: int) -> str:
+        """
+        通过user_id查询user昵称
+        :return: 用户昵称
+        """
+        stmt = 'CALL query_user_name(%s);'
+        user_name = self.execute(stmt, False, user_id)[0]
+        return '' if user_name is None else user_name
+
     def insertContact(self, user_id1: int, user_id2: int):
         """
         增加联系人
