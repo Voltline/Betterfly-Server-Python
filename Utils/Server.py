@@ -136,7 +136,7 @@ class EpollChatServer:
         try:
             client_socket, client_address = self.server_socket.accept()
             client_socket.setblocking(False)
-            # 将新的客户端 socket 注册到 epoll 中用于读取数据
+            # 将新的客户端 socket 注册bgnhjm到 epoll 中用于读取数据
             self.epoll.register(client_socket.fileno(), select.EPOLLIN)
             # 暂时将套接字存储起来，等待分配用户ID
             self.temp_clients[client_socket.fileno()] = client_socket
@@ -145,7 +145,6 @@ class EpollChatServer:
             logger.error(f"Error accepting new client: {e}", exc_info=True)
 
     def initialize_client(self, fileno):
-        logger.info(f"Initializing client {fileno}")
         try:
             client_socket = self.temp_clients.get(fileno)
             if client_socket is not None:
