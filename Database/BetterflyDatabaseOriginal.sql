@@ -11,7 +11,7 @@
  Target Server Version : 80039 (8.0.39-0ubuntu0.22.04.1)
  File Encoding         : 65001
 
- Date: 05/12/2024 16:00:26
+ Date: 07/12/2024 23:48:39
 */
 
 SET NAMES utf8mb4;
@@ -25,7 +25,10 @@ CREATE TABLE `contacts` (
   `user_id` int NOT NULL COMMENT '我',
   `contact_id` int NOT NULL COMMENT '别人',
   `notify` int NOT NULL DEFAULT '1' COMMENT '我能不能收到别人的新消息通知',
-  PRIMARY KEY (`user_id`,`contact_id`)
+  PRIMARY KEY (`user_id`,`contact_id`),
+  KEY `contacts_ibfk_2` (`contact_id`),
+  CONSTRAINT `contacts_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE RESTRICT,
+  CONSTRAINT `contacts_ibfk_2` FOREIGN KEY (`contact_id`) REFERENCES `users` (`user_id`) ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
@@ -34,8 +37,8 @@ CREATE TABLE `contacts` (
 DROP TABLE IF EXISTS `files`;
 CREATE TABLE `files` (
   `file_hash` varchar(128) NOT NULL COMMENT '文件的SHA512哈希值',
-  `file_suffix` varchar(128) DEFAULT NULL COMMENT '文件的后缀名，可为空',
-  PRIMARY KEY (`file_hash`),
+  `file_suffix` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件的后缀名，可为空',
+  PRIMARY KEY (`file_hash`) USING BTREE,
   UNIQUE KEY `file_hash_idx` (`file_hash`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -47,7 +50,10 @@ CREATE TABLE `group_users` (
   `group_id` int NOT NULL,
   `user_id` int NOT NULL,
   `notify` int NOT NULL DEFAULT '1',
-  PRIMARY KEY (`group_id`,`user_id`)
+  PRIMARY KEY (`group_id`,`user_id`),
+  KEY `group_users_ibfk_2` (`user_id`),
+  CONSTRAINT `group_users_ibfk_1` FOREIGN KEY (`group_id`) REFERENCES `groups` (`group_id`) ON UPDATE RESTRICT,
+  CONSTRAINT `group_users_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
@@ -58,7 +64,7 @@ CREATE TABLE `groups` (
   `group_id` int NOT NULL COMMENT '群组id',
   `group_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '群组名称',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上次信息更新的时间(群组本身的信息或群组成员的信息)',
-  `group_avatar` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '群头像',
+  `group_avatar` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '群头像',
   PRIMARY KEY (`group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -73,7 +79,8 @@ CREATE TABLE `messages` (
   `text` varchar(700) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '消息内容',
   `type` varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'text' COMMENT '消息类型(text, image, gif, file)',
   `is_group` int NOT NULL DEFAULT '0' COMMENT 'to_id是群组还是用户',
-  PRIMARY KEY (`from_user_id`,`to_id`,`timestamp`,`text`,`type`,`is_group`)
+  PRIMARY KEY (`from_user_id`,`to_id`,`timestamp`,`text`,`type`,`is_group`),
+  CONSTRAINT `messages_ibfk_1` FOREIGN KEY (`from_user_id`) REFERENCES `users` (`user_id`) ON UPDATE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
@@ -83,7 +90,8 @@ DROP TABLE IF EXISTS `user_apns_tokens`;
 CREATE TABLE `user_apns_tokens` (
   `user_id` int NOT NULL COMMENT '用户ID',
   `user_apns_token` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '苹果设备的APN Token',
-  PRIMARY KEY (`user_id`,`user_apns_token`) USING BTREE
+  PRIMARY KEY (`user_id`,`user_apns_token`) USING BTREE,
+  CONSTRAINT `user_apns_tokens_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
@@ -97,7 +105,7 @@ CREATE TABLE `users` (
   `auth_string` varchar(255) DEFAULT NULL COMMENT '认证字符串',
   `last_login` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上次下线的时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '上次用户信息更新的时间',
-  `user_avatar` text NOT NULL COMMENT '用户头像',
+  `user_avatar` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '用户头像',
   PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1506348631 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -384,6 +392,20 @@ BEGIN
   select user_apns_token
 	from user_apns_tokens apn
 	where user_id = apn.user_id;
+END
+;;
+delimiter ;
+
+-- ----------------------------
+-- Procedure structure for query_user_name
+-- ----------------------------
+DROP PROCEDURE IF EXISTS `query_user_name`;
+delimiter ;;
+CREATE DEFINER=`voltline`@`%` PROCEDURE `query_user_name`(_user_id INT)
+BEGIN
+	SELECT user_name
+	FROM users
+	WHERE user_id = _user_id;
 END
 ;;
 delimiter ;

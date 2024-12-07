@@ -1,10 +1,11 @@
-import jwt
-import time
-import httpx
-import json
 import os
+import time
+
+import httpx
+import jwt
 
 from Utils.color_logger import get_logger
+
 logger = get_logger(__name__)
 
 root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')

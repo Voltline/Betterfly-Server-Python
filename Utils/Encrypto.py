@@ -1,7 +1,6 @@
-import gzip
-import json
-import re
 import base64
+import re
+
 from Crypto.Cipher import AES
 
 

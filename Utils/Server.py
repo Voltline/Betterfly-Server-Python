@@ -1,22 +1,20 @@
-import socket
-import select
 import errno
 import logging
+import select
+import socket
 import threading
-import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime as dt
 from queue import Queue
 
 import Utils.Message
 import Utils.config
-import Utils.RegexUtil
-from Utils.apns import APNsClient, make_notification_payload
-from Utils.Message import ResponseMessage, ResponseType, RequestMessage, RequestType, df
-from Utils.color_logger import get_logger
-from Utils.Encrypto import MessageDealer
-from Utils.cos import cos_operator as cos
 from Database.db_operator import DBOperator
+from Utils.Encrypto import MessageDealer
+from Utils.Message import ResponseMessage, ResponseType, RequestMessage, RequestType, df
+from Utils.apns import APNsClient, make_notification_payload
+from Utils.color_logger import get_logger
+from Utils.cos import cos_operator as cos
 
 logger = get_logger(__name__)
 

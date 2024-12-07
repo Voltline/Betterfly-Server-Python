@@ -1,8 +1,10 @@
-from qcloud_cos import CosConfig, CosS3Client
 import os
-import Utils.config
 
+from qcloud_cos import CosConfig, CosS3Client
+
+import Utils.config
 from Utils.color_logger import get_logger
+
 logger = get_logger(__name__)
 
 root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')

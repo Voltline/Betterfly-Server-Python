@@ -13,7 +13,8 @@ enum RequestType
 {
     "type": RequestType.Login,
     "from": iid,
-    "name": name
+    "name": name,
+    "timestamp": latestTimestamp
 }
 ```
 
