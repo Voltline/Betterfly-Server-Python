@@ -141,7 +141,7 @@ class DBOperator:
         stmt = 'CALL insert_group_user(%s, %s);'
         self.execute(stmt, False, group_id, user_id)
 
-    def insertMessage(self, from_user_id: int, to_id: int, timestamp: datetime.datetime, text: str, type: str, is_group: bool):
+    def insertMessage(self, from_user_id: int, to_id: int, timestamp: datetime.datetime | str, text: str, type: str, is_group: bool):
         """保存消息到服务器数据库"""
         stmt = 'CALL insert_message(%s, %s, %s, %s, %s, %s);'
         self.execute(stmt, False, from_user_id, to_id, timestamp, text, type, is_group)

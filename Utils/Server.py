@@ -206,8 +206,8 @@ class EpollChatServer:
                     if task.type == RequestType.Exit:  # 执行退出操作
                         self.disconnect_queue.put((fileno, False))
                     elif task.type == RequestType.Post:  # 正常发消息
-                        now = dt.now()
-                        task.packet_json["timestamp"] = now.strftime(df)  # 重新授时
+                        now = dt.now().strftime(df)
+                        task.packet_json["timestamp"] = now  # 重新授时
                         task.timestamp = now
                         to_id = task.to_id
                         is_group = task.is_group
