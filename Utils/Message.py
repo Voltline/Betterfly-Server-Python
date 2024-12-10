@@ -73,7 +73,7 @@ class RequestMessage:
 class ResponseMessage:
     def __init__(self, type: ResponseType, from_id: int, msg: str, from_name: str = "",
                  to_id: int = 0, is_group: bool = None, content: str = "",
-                 timestamp: dt = None, msg_type: str = None, file_op: str = None):
+                 timestamp: dt | str = None, msg_type: str = None, file_op: str = None):
         self.type = type
         self.from_id = from_id
         self.msg = msg
@@ -119,7 +119,7 @@ class ResponseMessage:
                            is_group: bool = False, msg: str = "Hello"):
         """此消息会在创建时录入数据库"""
         response = ResponseMessage(ResponseType.Post, from_user_id, msg, from_user_name, to_id, is_group,
-                                   timestamp=dt.now(), msg_type="text")
+                                   timestamp=dt.now().strftime(df), msg_type="text")
         db = DBOperator()
         db.insertMessage(response.from_id, response.to_id, response.timestamp, response.msg, "text", response.is_group)
         return response
